@@ -9,7 +9,6 @@ from torchvision import transforms
 from datasets import load_dataset
 from einops import rearrange
 
-
 # Configs
 resume_path = './models/control_sd21_ini.ckpt'
 batch_size = 4
@@ -17,7 +16,6 @@ logger_freq = 300
 learning_rate = 1e-5
 sd_locked = True
 only_mid_control = False
-
 
 # First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
 model = create_model('./models/cldm_v21.yaml').cpu()
@@ -41,6 +39,9 @@ class DataTransformer:
         output["hint"] = self.transform(x['original_image'])
         output["prompt"] = x['edit_prompt']
 
+        output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
+        output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
+
         return output
 
 
@@ -52,8 +53,7 @@ dataset = dataset.map(lambda x: piltransformer.transformer(x))
 dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_image", "edit_prompt", "edited_prompt"])
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq)
-trainer = pl.Trainer(accelerator="gpu",devices=1,precision=32, callbacks=[logger])
-
+trainer = pl.Trainer(accelerator="gpu", devices=1, precision=32, callbacks=[logger])
 
 # Train!
 trainer.fit(model, dataloader)
