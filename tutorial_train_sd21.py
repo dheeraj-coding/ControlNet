@@ -7,6 +7,7 @@ from cldm.logger import ImageLogger
 from cldm.model import create_model, load_state_dict
 from torchvision import transforms
 from datasets import load_dataset
+from einops import rearrange
 
 
 # Configs
@@ -45,13 +46,13 @@ class DataTransformer:
 
 # dataset = MyDataset()
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
-dataset = dataset.shuffle(buffer_size=10000, seed=42)
+dataset = dataset.shuffle(buffer_size=2000, seed=42)
 piltransformer = DataTransformer()
 dataset = dataset.map(lambda x: piltransformer.transformer(x))
-
+dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_image", "edit_prompt", "edited_prompt"])
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq)
-trainer = pl.Trainer(gpus=1, precision=32, callbacks=[logger])
+trainer = pl.Trainer(accelerator="gpu",devices=1,precision=32, callbacks=[logger])
 
 
 # Train!
