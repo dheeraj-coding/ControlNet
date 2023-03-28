@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 
 from torch.utils.data import Dataset
+from torchvision import transforms
+from datasets import load_dataset
 
 
 class MyDataset(Dataset):
@@ -37,3 +39,29 @@ class MyDataset(Dataset):
 
         return dict(jpg=target, txt=prompt, hint=source)
 
+
+if __name__ == "__main__":
+    class DataTransformer:
+        def __init__(self):
+            print("Hello Started!")
+            self.transform = transforms.Compose([
+                transforms.PILToTensor()
+            ])
+
+        def transformer(self, x):
+            output = dict()
+            output["jpg"] = self.transform(x['edited_image'])
+            output["hint"] = self.transform(x['original_image'])
+            output["prompt"] = x['edit_prompt']
+
+            return output
+
+
+    # dataset = MyDataset()
+    dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
+    # dataset = dataset.shuffle(buffer_size=10000, seed=42)
+    piltransformer = DataTransformer()
+    dataset = dataset.map(lambda x: piltransformer.transformer(x))
+    for batch in dataset:
+        print(batch)
+        exit(0)
