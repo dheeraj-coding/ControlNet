@@ -37,7 +37,7 @@ class DataTransformer:
         output = dict()
         output["jpg"] = self.transform(x['edited_image'])
         output["hint"] = self.transform(x['original_image'])
-        output["prompt"] = x['edit_prompt']
+        output["txt"] = x['edit_prompt']
 
         output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
         output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
