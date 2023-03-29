@@ -1,3 +1,5 @@
+import numpy as np
+
 from share import *
 
 import pytorch_lightning as pl
@@ -42,6 +44,8 @@ class DataTransformer:
         output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
         output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
 
+        output['jpg'] = (output['jpg'].astype(np.float32) / 127.5) - 1.0
+        output['hint'] = output['hint'].astype(np.float32) / 255.0
         return output
 
 
