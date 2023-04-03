@@ -16,6 +16,7 @@ import cv2
 import einops
 import gradio as gr
 from pytorch_lightning import seed_everything
+from torchvision import transforms
 from annotator.util import resize_image, HWC3
 from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler
@@ -97,7 +98,9 @@ sim_image_avg_imagic = []
 stop_count = 25
 
 model = create_model('./models/cldm_v21.yaml').cpu()
-model.load_state_dict(load_state_dict('/home1/dheeraj/ControlNet/lightning_logs/version_14208795/checkpoints/epoch=1-step=99999.ckpt', location='cuda'))
+model.load_state_dict(
+    load_state_dict('/home1/dheeraj/ControlNet/lightning_logs/version_14208795/checkpoints/epoch=1-step=99999.ckpt',
+                    location='cuda'))
 model = model.cuda()
 model = model.eval()
 ddim_sampler = DDIMSampler(model)
@@ -151,6 +154,10 @@ def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resoluti
     return [255 - detected_map] + results
 
 
+data_transformer = transforms.Compose([
+    transforms.PILToTensor()
+])
+
 for index, data in enumerate(dataset):
     if index > 9:
         out = []
@@ -165,7 +172,9 @@ for index, data in enumerate(dataset):
         print(index, "- prompt: ", prompt)
 
         # ret_value = instruct_edit(img, prompt)
-        print(type(img))
+        img = data_transformer(img)
+        img = rearrange(img, 'c h w -> h w c')
+        img = img.type(torch.float32) / 255.0
         ret_value = process(img, prompt, "", "", 1, 512, 20, False, 1.0, 9.0, seed, 0.0, 100, 200)
 
         if ret_value is not None:
