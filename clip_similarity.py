@@ -1,53 +1,36 @@
+from __future__ import annotations
 from pathlib import Path
-from huggingface_hub import notebook_login
-
 import requests
-from PIL import Image
 from io import BytesIO
 import torch
 import os
 from diffusers import DiffusionPipeline, DDIMScheduler
-from __future__ import annotations
-
 import math
 import random
 import sys
 from argparse import ArgumentParser
 from cldm.cldm import ControlLDM
-
 from share import *
 import config
-
 import cv2
 import einops
 import gradio as gr
-import numpy as np
-import torch
-import random
-
 from pytorch_lightning import seed_everything
 from annotator.util import resize_image, HWC3
-from annotator.canny import CannyDetector
 from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler
-
-import einops
 import numpy as np
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm.auto import tqdm
 from einops import rearrange
 from PIL import Image, ImageOps
-
 import json
 import matplotlib.pyplot as plt
 import seaborn
-from pathlib import Path
 from fastai.basics import show_image, show_images
 import clip
 from datasets import load_dataset
-
 from fastcore.parallel import Self
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -113,8 +96,8 @@ sim_direction_avg_imagic = []
 sim_image_avg_imagic = []
 stop_count = 25
 
-model = create_model('./models/cldm_v15.yaml').cpu()
-model.load_state_dict(load_state_dict('./models/control_sd15_canny.pth', location='cuda'))
+model = create_model('./models/cldm_v21.yaml').cpu()
+model.load_state_dict(load_state_dict('/home1/dheeraj/ControlNet/lightning_logs/version_14208795/checkpoints/epoch=1-step=99999.ckpt', location='cuda'))
 model = model.cuda()
 model = model.eval()
 ddim_sampler = DDIMSampler(model)
@@ -182,6 +165,7 @@ for index, data in enumerate(dataset):
         print(index, "- prompt: ", prompt)
 
         # ret_value = instruct_edit(img, prompt)
+        print(type(img))
         ret_value = process(img, prompt, "", "", 1, 512, 20, False, 1.0, 9.0, seed, 0.0, 100, 200)
 
         if ret_value is not None:
