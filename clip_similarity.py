@@ -96,7 +96,6 @@ sim_image_avg_instruct = []
 sim_direction_avg_imagic = []
 sim_image_avg_imagic = []
 stop_count = 25
-
 model = create_model('./models/cldm_v21.yaml').cpu()
 model.load_state_dict(
     load_state_dict('/home1/dheeraj/ControlNet/lightning_logs/version_14208795/checkpoints/epoch=1-step=99999.ckpt',
@@ -109,15 +108,18 @@ ddim_sampler = DDIMSampler(model)
 def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, ddim_steps, guess_mode, strength,
             scale, seed, eta, low_threshold, high_threshold):
     with torch.no_grad():
-        img = resize_image(HWC3(input_image), image_resolution)
+        # img = resize_image(HWC3(input_image), image_resolution)
+        img = input_image.to(device)
         H, W, C = img.shape
+        print(img.shape)
 
         # detected_map = apply_canny(img, low_threshold, high_threshold)
-        detected_map = HWC3(input_image)
+        # detected_map = HWC3(input_image)
+        detected_map = img
+        control = torch.clone(detected_map)
 
-        control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
         control = torch.stack([control for _ in range(num_samples)], dim=0)
-        control = einops.rearrange(control, 'b h w c -> b c h w').clone()
+        control = rearrange(control, 'b h w c -> b c h w').clone()
 
         if seed == -1:
             seed = random.randint(0, 65535)
@@ -157,9 +159,10 @@ def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resoluti
 data_transformer = transforms.Compose([
     transforms.PILToTensor()
 ])
+to_transformer = transforms.ToPILImage()
 
 for index, data in enumerate(dataset):
-    if index > 9:
+    if index > -1:
         out = []
         img = data['original_image']
         input_caption = data['original_prompt']
@@ -176,6 +179,11 @@ for index, data in enumerate(dataset):
         img = rearrange(img, 'c h w -> h w c')
         img = img.type(torch.float32) / 255.0
         ret_value = process(img, prompt, "", "", 1, 512, 20, False, 1.0, 9.0, seed, 0.0, 100, 200)
+        ret_value = ret_value[0]
+        ret_value = rearrange(ret_value, 'h w c -> c h w')
+        ret_value = to_transformer(ret_value)
+        img = rearrange(img, 'h w c -> c h w')
+        img = to_transformer(img)
 
         if ret_value is not None:
             out.append(ret_value)
@@ -208,7 +216,6 @@ seaborn.set_style("darkgrid")
 plt.figure(figsize=(20.5 * 0.7, 10.8 * 0.7), dpi=200)
 
 plt.plot(x, y, linewidth=2, markersize=4)
-# plt.plot(x2, y2,  linewidth=2, markersize=4)
 
 plt.xlabel("CLIP Text-Image Direction Similarity", labelpad=10)
 plt.ylabel("CLIP Image Similarity", labelpad=10)
@@ -217,11 +224,13 @@ plt.savefig(Path("./") / Path("plot.pdf"), bbox_inches="tight")
 
 # averaged results
 x_avg = np.array(x)
-x_avg = np.delete(x_avg, -1)
+n = len(x_avg)
+n = (n // 3) * 3
+x_avg = x_avg[:n]
 x_avg = np.mean(np.array(x_avg).reshape(-1, 3), axis=1)
 
 y_avg = np.array(y)
-y_avg = np.delete(y_avg, -1)
+y_avg = y_avg[:n]
 y_avg = np.mean(np.array(y_avg).reshape(-1, 3), axis=1)
 
 # instructPix2Pix
@@ -231,3 +240,5 @@ plt.xlabel("CLIP Text-Image Direction Similarity", labelpad=10)
 plt.ylabel("CLIP Image Similarity", labelpad=10)
 
 plt.savefig(Path("./") / Path("plot.pdf"), bbox_inches="tight")
+
+np.savez('controlnet.npz', x=x, y=y, x_avg=x_avg, y_avg=y_avg)
