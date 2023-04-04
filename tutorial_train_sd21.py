@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 from share import *
 
@@ -44,8 +45,8 @@ class DataTransformer:
         output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
         output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
 
-        output['jpg'] = (output['jpg'].astype(np.float32) / 127.5) - 1.0
-        output['hint'] = output['hint'].astype(np.float32) / 255.0
+        output['jpg'] = (output['jpg'].type(torch.float32) / 127.5) - 1.0
+        output['hint'] = output['hint'].type(torch.float32) / 255.0
         return output
 
 
