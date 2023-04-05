@@ -35,6 +35,18 @@ model:
         use_checkpoint: True
         legacy: False
 
+        neural_op_config:
+          input_dim: 3
+          n_downsampling: 2
+          operator: adaroute
+          temperature: 1.
+          w_gate: 1.
+          num_adablock: 4
+          lr: 0.0002
+          pretrain: ''
+          output_dir: ''
+
+
     unet_config:
       target: cldm.cldm.ControlledUnetModel
       params:
@@ -65,12 +77,12 @@ model:
           out_ch: 3
           ch: 128
           ch_mult:
-          - 1
-          - 2
-          - 4
-          - 4
+            - 1
+            - 2
+            - 4
+            - 4
           num_res_blocks: 2
-          attn_resolutions: []
+          attn_resolutions: [ ]
           dropout: 0.0
         lossconfig:
           target: torch.nn.Identity

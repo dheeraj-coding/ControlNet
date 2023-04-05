@@ -27,7 +27,6 @@ from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
 from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
 from ldm.models.diffusion.ddim import DDIMSampler
 
-
 __conditioning_keys__ = {'concat': 'c_concat',
                          'crossattn': 'c_crossattn',
                          'adm': 'y'}
@@ -112,7 +111,8 @@ class DDPM(pl.LightningModule):
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet)
             if reset_ema:
                 assert self.use_ema
-                print(f"Resetting ema to pure model weights. This is useful when restoring from an ema-only checkpoint.")
+                print(
+                    f"Resetting ema to pure model weights. This is useful when restoring from an ema-only checkpoint.")
                 self.model_ema = LitEma(self.model)
         if reset_num_ema_updates:
             print(" +++++++++++ WARNING: RESETTING NUM_EMA UPDATES TO ZERO +++++++++++ ")
@@ -451,6 +451,16 @@ class DDPM(pl.LightningModule):
             lr = self.optimizers().param_groups[0]['lr']
             self.log('lr_abs', lr, prog_bar=True, logger=True, on_step=True, on_epoch=False)
 
+        optControl, optNeural = self.optimizers()
+
+        optNeural.zero_grad()
+        neuralLoss = self.control_model.neural_op.backward()
+        optNeural.step()
+
+        optControl.zero_grad()
+        loss.backward()
+        optControl.step()
+        loss += neuralLoss
         return loss
 
     @torch.no_grad()
@@ -885,7 +895,7 @@ class LatentDiffusion(DDPM):
     def p_losses(self, x_start, cond, t, noise=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, t, cond)
+        model_output = self.apply_model(x_noisy, x_start, t, cond)
 
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
@@ -908,8 +918,6 @@ class LatentDiffusion(DDPM):
         if self.learn_logvar:
             loss_dict.update({f'{prefix}/loss_gamma': loss.mean()})
             loss_dict.update({'logvar': self.logvar.data.mean()})
-
-        loss = self.l_simple_weight * loss.mean()
 
         loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
@@ -1462,7 +1470,7 @@ class LatentUpscaleDiffusion(LatentDiffusion):
                     uc[k] = [uc_tmp]
                 elif k == "c_adm":  # todo: only run with text-based guidance?
                     assert isinstance(c[k], torch.Tensor)
-                    #uc[k] = torch.ones_like(c[k]) * self.low_scale_model.max_noise_level
+                    # uc[k] = torch.ones_like(c[k]) * self.low_scale_model.max_noise_level
                     uc[k] = c[k]
                 elif isinstance(c[k], list):
                     uc[k] = [c[k][i] for i in range(len(c[k]))]
@@ -1738,6 +1746,7 @@ class LatentUpscaleFinetuneDiffusion(LatentFinetuneDiffusion):
     """
         condition on low-res image (and optionally on some spatial noise augmentation)
     """
+
     def __init__(self, concat_keys=("lr",), reshuffle_patch_size=None,
                  low_scale_config=None, low_scale_key=None, *args, **kwargs):
         super().__init__(concat_keys=concat_keys, *args, **kwargs)
