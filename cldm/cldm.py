@@ -351,7 +351,7 @@ class ControlLDM(LatentDiffusion):
         edited = edited.to(memory_format=torch.contiguous_format).float()
         return x, dict(c_crossattn=c['c_crossattn'], c_concat=[control], inp_embed=c['c_concat'], edited=edited)
 
-    def apply_model(self, x_noisy, x_start, t, cond, txt_og=None, *args, **kwargs):
+    def apply_model(self, x_noisy, t, cond, txt_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
         diffusion_model = self.model.diffusion_model
 
