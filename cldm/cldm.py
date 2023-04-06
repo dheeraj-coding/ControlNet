@@ -289,12 +289,12 @@ class ControlNet(nn.Module):
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
-    def forward(self, x, x_start, txt, hint, timesteps, context, epoch, **kwargs):
+    def forward(self, x, txt, hint, timesteps, context, epoch, edited=None, **kwargs):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
         guided_hint = self.input_hint_block(hint, emb, context)
-        self.neural_op.set_input(hint, txt, x_start)
+        self.neural_op.set_input(hint, txt, edited)
         temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
         use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
         hint2 = self.neural_op()
@@ -326,6 +326,7 @@ class ControlLDM(LatentDiffusion):
         super().__init__(*args, **kwargs)
         self.control_model = instantiate_from_config(control_stage_config)
         self.control_key = control_key
+        self.first_stage_key = kwargs['first_stage_key']
         self.uncond = uncond
         self.only_mid_control = only_mid_control
         self.control_scales = [1.0] * 13
@@ -341,7 +342,14 @@ class ControlLDM(LatentDiffusion):
         control = control.to(self.device)
         control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
-        return x, dict(c_crossattn=c['c_crossattn'], c_concat=[control], inp_embed=c['c_concat'])
+
+        edited = batch[self.first_stage_key]
+        if bs is not None:
+            edited = edited[:bs]
+        edited = edited.to(self.device)
+        edited = einops.rearrange(edited, 'b h w c -> b c h w')
+        edited = edited.to(memory_format=torch.contiguous_format).float()
+        return x, dict(c_crossattn=c['c_crossattn'], c_concat=[control], inp_embed=c['c_concat'], edited=edited)
 
     def apply_model(self, x_noisy, x_start, t, cond, txt_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
@@ -355,8 +363,8 @@ class ControlLDM(LatentDiffusion):
         else:
             if self.conditioning_key == 'hybrid':
                 xc = torch.cat([x_noisy] + cond['inp_embed'], dim=1)
-            control = self.control_model(x=x_noisy, x_start=x_start, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
-                                         context=cond_txt, txt=txt_og, epoch=self.current_epoch)
+            control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
+                                         context=cond_txt, txt=txt_og, edited=cond['edited'], epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
                                   only_mid_control=self.only_mid_control)
