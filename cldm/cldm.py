@@ -284,6 +284,7 @@ class ControlNet(nn.Module):
         self._feature_size += ch
 
         self.neural_op = NeuralOperator(neural_op_config)
+        self.n_ep = neural_op_config.n_ep
 
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
@@ -292,8 +293,14 @@ class ControlNet(nn.Module):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-        # guided_hint = self.input_hint_block(hint, emb, context)
+        guided_hint = self.input_hint_block(hint, emb, context)
         self.neural_op.set_input(hint, context, x_start)
+        temperature_rate = max(0, 1 - (self.current_epoch + 1) / float(self.n_ep))
+        use_gt_attn_rate = max(0, 1 - self.current_epoch / float(self.n_ep))
+        hint2 = self.neural_op()
+
+        print("Hint dims: ", hint2.size())
+        print("Guide dims: ", guided_hint.size())
 
         outs = []
 

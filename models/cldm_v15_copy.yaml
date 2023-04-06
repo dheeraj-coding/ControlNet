@@ -45,6 +45,7 @@ model:
           lr: 0.0002
           pretrain: ''
           output_dir: ''
+          n_ep: 5
 
 
     unet_config:
