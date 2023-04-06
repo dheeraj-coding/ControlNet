@@ -386,8 +386,8 @@ class ControlLDM(LatentDiffusion):
         log = dict()
         z, c = self.get_input(batch, self.first_stage_key, bs=N)
         c_cat, c = c["c_concat"][0][:N], c["c_crossattn"][0][:N]
-        c_edited = c["edited"][0][:N]
-        c_inp_embed = c["inp_embed"][0][:N]
+        c_edited = c["edited"][:N]
+        c_inp_embed = c["inp_embed"][:N]
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
         log["reconstruction"] = self.decode_first_stage(z)
