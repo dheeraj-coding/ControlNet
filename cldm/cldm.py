@@ -362,7 +362,7 @@ class ControlLDM(LatentDiffusion):
                                   only_mid_control=self.only_mid_control)
         else:
             if self.conditioning_key == 'hybrid':
-                xc = torch.cat([x_noisy] + cond['inp_embed'], dim=1)
+                x_noisy = torch.cat([x_noisy] + cond['inp_embed'], dim=1)
             control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
                                          context=cond_txt, txt=txt_og, edited=cond['edited'], epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
