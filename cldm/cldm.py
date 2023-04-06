@@ -343,7 +343,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(memory_format=torch.contiguous_format).float()
         return x, dict(c_crossattn=c['c_crossattn'], c_concat=[control], inp_embed=c['c_concat'])
 
-    def apply_model(self, x_noisy, x_start, t, cond, x_og=None, txt_og=None, *args, **kwargs):
+    def apply_model(self, x_noisy, x_start, t, cond, txt_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
         diffusion_model = self.model.diffusion_model
 
@@ -355,7 +355,7 @@ class ControlLDM(LatentDiffusion):
         else:
             if self.conditioning_key == 'hybrid':
                 xc = torch.cat([x_noisy] + cond['inp_embed'], dim=1)
-            control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
+            control = self.control_model(x=x_noisy, x_start=x_start, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
                                          context=cond_txt, txt=txt_og, epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
