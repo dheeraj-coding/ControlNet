@@ -386,11 +386,14 @@ class ControlLDM(LatentDiffusion):
         log = dict()
         z, c = self.get_input(batch, self.first_stage_key, bs=N)
         c_cat, c = c["c_concat"][0][:N], c["c_crossattn"][0][:N]
+        c_edited = c["edited"][0][:N]
+        c_inp_embed = c["inp_embed"][0][:N]
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
         log["reconstruction"] = self.decode_first_stage(z)
         log["control"] = c_cat * 2.0 - 1.0
         log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
+        log["edited"] = c_edited * 2.0 - 1.0
 
         if plot_diffusion_rows:
             # get diffusion row
@@ -412,9 +415,10 @@ class ControlLDM(LatentDiffusion):
 
         if sample:
             # get denoise row
-            samples, z_denoise_row = self.sample_log(cond={"c_concat": [c_cat], "c_crossattn": [c]},
-                                                     batch_size=N, ddim=use_ddim,
-                                                     ddim_steps=ddim_steps, eta=ddim_eta)
+            samples, z_denoise_row = self.sample_log(
+                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": [c_edited]},
+                batch_size=N, ddim=use_ddim,
+                ddim_steps=ddim_steps, eta=ddim_eta)
             x_samples = self.decode_first_stage(samples)
             log["samples"] = x_samples
             if plot_denoise_rows:
@@ -425,12 +429,13 @@ class ControlLDM(LatentDiffusion):
             uc_cross = self.get_unconditional_conditioning(N)
             uc_cat = c_cat  # torch.zeros_like(c_cat)
             uc_full = {"c_concat": [uc_cat], "c_crossattn": [uc_cross]}
-            samples_cfg, _ = self.sample_log(cond={"c_concat": [c_cat], "c_crossattn": [c]},
-                                             batch_size=N, ddim=use_ddim,
-                                             ddim_steps=ddim_steps, eta=ddim_eta,
-                                             unconditional_guidance_scale=unconditional_guidance_scale,
-                                             unconditional_conditioning=uc_full,
-                                             )
+            samples_cfg, _ = self.sample_log(
+                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": [c_edited]},
+                batch_size=N, ddim=use_ddim,
+                ddim_steps=ddim_steps, eta=ddim_eta,
+                unconditional_guidance_scale=unconditional_guidance_scale,
+                unconditional_conditioning=uc_full,
+            )
             x_samples_cfg = self.decode_first_stage(samples_cfg)
             log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
 
