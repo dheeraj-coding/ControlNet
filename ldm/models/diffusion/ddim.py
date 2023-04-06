@@ -193,7 +193,7 @@ class DDIMSampler(object):
         else:
             x_in = torch.cat([x] * 2)
             t_in = torch.cat([t] * 2)
-            txt_og_in = [""] * x_in.size(0)
+            txt_og_in = [" "] * x_in.size(0)
             if isinstance(c, dict):
                 assert isinstance(unconditional_conditioning, dict)
                 c_in = dict()
