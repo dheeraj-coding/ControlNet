@@ -918,7 +918,7 @@ class LatentDiffusion(DDPM):
     def p_losses(self, x_start, cond, t, noise=None, x_og=None, txt_og=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, x_start, t, cond, txt_og=txt_og)
+        model_output = self.apply_model(x_noisy, t, cond, txt_og=txt_og)
 
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
