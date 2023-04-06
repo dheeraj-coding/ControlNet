@@ -77,7 +77,7 @@ class DDIMSampler(object):
                # this has to come in the same format as the conditioning, # e.g. as encoded tokens, ...
                dynamic_threshold=None,
                ucg_schedule=None,
-               txt_og=None
+               txt_og=None,
                **kwargs
                ):
         if conditioning is not None:
