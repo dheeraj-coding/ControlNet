@@ -783,7 +783,7 @@ class LatentDiffusion(DDPM):
         encoder_posterior = self.encode_first_stage(x)
         z = self.get_first_stage_encoding(encoder_posterior).detach()
         xc = dict()
-        xc['c_crossattn'] = super().get_input(batch, self.cond_stage_key)
+        xc['c_crossattn'] = batch[self.cond_stage_key]
         xc['c_concat'] = super().get_input(batch, self.control_key)
         if bs is not None:
             xc["c_crossattn"] = xc["c_crossattn"][:bs]
