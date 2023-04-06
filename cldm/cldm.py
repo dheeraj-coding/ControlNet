@@ -388,6 +388,7 @@ class ControlLDM(LatentDiffusion):
         c_edited = c["edited"][:N]
         c_inp_embed = c["inp_embed"][0][:N]
         c_cat, c = c["c_concat"][0][:N], c["c_crossattn"][0][:N]
+        txt_og = batch[self.cond_stage_key]
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
         log["reconstruction"] = self.decode_first_stage(z)
@@ -418,7 +419,7 @@ class ControlLDM(LatentDiffusion):
             samples, z_denoise_row = self.sample_log(
                 cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": c_edited},
                 batch_size=N, ddim=use_ddim,
-                ddim_steps=ddim_steps, eta=ddim_eta)
+                ddim_steps=ddim_steps, eta=ddim_eta, txt_og=txt_og)
             x_samples = self.decode_first_stage(samples)
             log["samples"] = x_samples
             if plot_denoise_rows:
@@ -443,11 +444,12 @@ class ControlLDM(LatentDiffusion):
         return log
 
     @torch.no_grad()
-    def sample_log(self, cond, batch_size, ddim, ddim_steps, **kwargs):
+    def sample_log(self, cond, batch_size, ddim, ddim_steps, txt_og=None, **kwargs):
         ddim_sampler = DDIMSampler(self)
         b, c, h, w = cond["c_concat"][0].shape
         shape = (self.channels, h // 8, w // 8)
-        samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, **kwargs)
+        samples, intermediates = ddim_sampler.sample(ddim_steps, batch_size, shape, cond, verbose=False, txt_og=txt_og,
+                                                     **kwargs)
         return samples, intermediates
 
     def configure_optimizers(self):
