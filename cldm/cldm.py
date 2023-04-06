@@ -322,11 +322,11 @@ class ControlNet(nn.Module):
 
 class ControlLDM(LatentDiffusion):
 
-    def __init__(self, control_stage_config, control_key, only_mid_control, *args, **kwargs):
+    def __init__(self, control_stage_config, control_key, only_mid_control, uncond, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.control_model = instantiate_from_config(control_stage_config)
         self.control_key = control_key
-        self.uncond = control_stage_config.params.uncond
+        self.uncond = uncond
         self.only_mid_control = only_mid_control
         self.control_scales = [1.0] * 13
         self.automatic_optimization = False
