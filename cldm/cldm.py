@@ -289,12 +289,12 @@ class ControlNet(nn.Module):
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
-    def forward(self, x, x_start, hint, timesteps, context, epoch, **kwargs):
+    def forward(self, x, x_start, txt, hint, timesteps, context, epoch, **kwargs):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
         guided_hint = self.input_hint_block(hint, emb, context)
-        self.neural_op.set_input(hint, context, x_start)
+        self.neural_op.set_input(hint, txt, x_start)
         temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
         use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
         hint2 = self.neural_op()
@@ -341,7 +341,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(memory_format=torch.contiguous_format).float()
         return x, dict(c_crossattn=[c], c_concat=[control])
 
-    def apply_model(self, x_noisy, x_start, t, cond, x_og=None, *args, **kwargs):
+    def apply_model(self, x_noisy, x_start, t, cond, x_og=None, txt_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
         diffusion_model = self.model.diffusion_model
 
@@ -352,7 +352,7 @@ class ControlLDM(LatentDiffusion):
                                   only_mid_control=self.only_mid_control)
         else:
             control = self.control_model(x=x_noisy, x_start=x_og, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
-                                         context=cond_txt, epoch=self.current_epoch)
+                                         context=cond_txt, txt=txt_og, epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
                                   only_mid_control=self.only_mid_control)

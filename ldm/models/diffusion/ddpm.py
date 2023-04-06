@@ -845,11 +845,12 @@ class LatentDiffusion(DDPM):
         x_og = batch[self.first_stage_key]
         x_og = rearrange(x_og, 'b h w c -> b c h w')
         x_og = x_og.to(memory_format=torch.contiguous_format).float()
+        txt_og = batch[self.cond_stage_key]
         x, c = self.get_input(batch, self.first_stage_key)
-        loss = self(x, c, x_og=x_og)
+        loss = self(x, c, x_og=x_og, txt_og=txt_og)
         return loss
 
-    def forward(self, x, c, x_og, *args, **kwargs):
+    def forward(self, x, c, x_og=None, txt_og=None, *args, **kwargs):
         t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
         if self.model.conditioning_key is not None:
             assert c is not None
@@ -858,7 +859,7 @@ class LatentDiffusion(DDPM):
             if self.shorten_cond_schedule:  # TODO: drop this option
                 tc = self.cond_ids[t].to(self.device)
                 c = self.q_sample(x_start=c, t=tc, noise=torch.randn_like(c.float()))
-        return self.p_losses(x, c, t, x_og=x_og, *args, **kwargs)
+        return self.p_losses(x, c, t, x_og=x_og, txt_og=txt_og, *args, **kwargs)
 
     def apply_model(self, x_noisy, t, cond, return_ids=False):
         if isinstance(cond, dict):
@@ -895,10 +896,10 @@ class LatentDiffusion(DDPM):
         kl_prior = normal_kl(mean1=qt_mean, logvar1=qt_log_variance, mean2=0.0, logvar2=0.0)
         return mean_flat(kl_prior) / np.log(2.0)
 
-    def p_losses(self, x_start, cond, t, noise=None, x_og=None):
+    def p_losses(self, x_start, cond, t, noise=None, x_og=None, txt_og=None):
         noise = default(noise, lambda: torch.randn_like(x_start))
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, x_start, t, cond, x_og=x_og)
+        model_output = self.apply_model(x_noisy, x_start, t, cond, x_og=x_og, txt_og=txt_og)
 
         loss_dict = {}
         prefix = 'train' if self.training else 'val'
