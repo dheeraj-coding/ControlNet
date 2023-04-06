@@ -341,7 +341,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(memory_format=torch.contiguous_format).float()
         return x, dict(c_crossattn=[c], c_concat=[control])
 
-    def apply_model(self, x_noisy, x_start, t, cond, *args, **kwargs):
+    def apply_model(self, x_noisy, x_start, t, cond, x_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
         diffusion_model = self.model.diffusion_model
 
@@ -351,7 +351,7 @@ class ControlLDM(LatentDiffusion):
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=None,
                                   only_mid_control=self.only_mid_control)
         else:
-            control = self.control_model(x=x_noisy, x_start=x_start, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
+            control = self.control_model(x=x_noisy, x_start=x_og, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
                                          context=cond_txt, epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
