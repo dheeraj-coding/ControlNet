@@ -454,14 +454,15 @@ class DDPM(pl.LightningModule):
         optControl, optNeural = self.optimizers()
 
         optNeural.zero_grad()
-        neuralLoss = self.control_model.neural_op.backward()
+        self.control_model.neural_op.backward()
         optNeural.step()
 
         optControl.zero_grad()
         loss.backward()
         optControl.step()
-        loss += neuralLoss
-        return loss
+        loss.sum().backward()
+        # loss += neuralLoss
+        # return loss
 
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
