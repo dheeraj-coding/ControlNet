@@ -34,6 +34,7 @@ model:
         context_dim: 768
         use_checkpoint: True
         legacy: False
+        uncond: 0.05
 
         neural_op_config:
           input_dim: 3

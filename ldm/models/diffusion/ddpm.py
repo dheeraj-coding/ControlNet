@@ -782,41 +782,60 @@ class LatentDiffusion(DDPM):
         x = x.to(self.device)
         encoder_posterior = self.encode_first_stage(x)
         z = self.get_first_stage_encoding(encoder_posterior).detach()
+        xc = dict()
+        xc['c_crossattn'] = super().get_input(batch, self.cond_stage_key)
+        xc['c_concat'] = super().get_input(batch, self.control_key)
+        if bs is not None:
+            xc["c_crossattn"] = xc["c_crossattn"][:bs]
+            xc["c_concat"] = xc["c_concat"][:bs]
 
-        if self.model.conditioning_key is not None and not self.force_null_conditioning:
-            if cond_key is None:
-                cond_key = self.cond_stage_key
-            if cond_key != self.first_stage_key:
-                if cond_key in ['caption', 'coordinates_bbox', "txt"]:
-                    xc = batch[cond_key]
-                elif cond_key in ['class_label', 'cls']:
-                    xc = batch
-                else:
-                    xc = super().get_input(batch, cond_key).to(self.device)
-            else:
-                xc = x
-            if not self.cond_stage_trainable or force_c_encode:
-                if isinstance(xc, dict) or isinstance(xc, list):
-                    c = self.get_learned_conditioning(xc)
-                else:
-                    c = self.get_learned_conditioning(xc.to(self.device))
-            else:
-                c = xc
-            if bs is not None:
-                c = c[:bs]
+        cond = {}
 
-            if self.use_positional_encodings:
-                pos_x, pos_y = self.compute_latent_shifts(batch)
-                ckey = __conditioning_keys__[self.model.conditioning_key]
-                c = {ckey: c, 'pos_x': pos_x, 'pos_y': pos_y}
+        # To support classifier-free guidance, randomly drop out only text conditioning 5%, only image conditioning 5%, and both 5%.
+        random = torch.rand(x.size(0), device=x.device)
+        prompt_mask = rearrange(random < 2 * self.uncond, "n -> n 1 1")
+        input_mask = 1 - rearrange((random >= self.uncond).float() * (random < 3 * self.uncond).float(), "n -> n 1 1 1")
 
-        else:
-            c = None
-            xc = None
-            if self.use_positional_encodings:
-                pos_x, pos_y = self.compute_latent_shifts(batch)
-                c = {'pos_x': pos_x, 'pos_y': pos_y}
-        out = [z, c]
+        null_prompt = self.get_learned_conditioning([""])
+        cond["c_crossattn"] = [
+            torch.where(prompt_mask, null_prompt, self.get_learned_conditioning(xc["c_crossattn"]).detach())]
+        cond["c_concat"] = [input_mask * self.encode_first_stage((xc["c_concat"].to(self.device))).mode().detach()]
+
+        # if self.model.conditioning_key is not None and not self.force_null_conditioning:
+        #     if cond_key is None:
+        #         cond_key = self.cond_stage_key
+        #     if cond_key != self.first_stage_key:
+        #         if cond_key in ['caption', 'coordinates_bbox', "txt"]:
+        #             xc = batch[cond_key]
+        #         elif cond_key in ['class_label', 'cls']:
+        #             xc = batch
+        #         else:
+        #             xc = super().get_input(batch, cond_key).to(self.device)
+        #     else:
+        #         xc = x
+        #     if not self.cond_stage_trainable or force_c_encode:
+        #         if isinstance(xc, dict) or isinstance(xc, list):
+        #             c = self.get_learned_conditioning(xc)
+        #         else:
+        #             c = self.get_learned_conditioning(xc.to(self.device))
+        #     else:
+        #         c = xc
+        #     if bs is not None:
+        #         c = c[:bs]
+        #
+        #     if self.use_positional_encodings:
+        #         pos_x, pos_y = self.compute_latent_shifts(batch)
+        #         ckey = __conditioning_keys__[self.model.conditioning_key]
+        #         c = {ckey: c, 'pos_x': pos_x, 'pos_y': pos_y}
+        #
+        # else:
+        #     c = None
+        #     xc = None
+        #     if self.use_positional_encodings:
+        #         pos_x, pos_y = self.compute_latent_shifts(batch)
+        #         c = {'pos_x': pos_x, 'pos_y': pos_y}
+
+        out = [z, cond]
         if return_first_stage_outputs:
             xrec = self.decode_first_stage(z)
             out.extend([x, xrec])

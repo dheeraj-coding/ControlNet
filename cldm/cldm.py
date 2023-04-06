@@ -326,9 +326,11 @@ class ControlLDM(LatentDiffusion):
         super().__init__(*args, **kwargs)
         self.control_model = instantiate_from_config(control_stage_config)
         self.control_key = control_key
+        self.uncond = control_stage_config.params.uncond
         self.only_mid_control = only_mid_control
         self.control_scales = [1.0] * 13
         self.automatic_optimization = False
+        self.conditioning_key = kwargs['conditioning_key']
 
     @torch.no_grad()
     def get_input(self, batch, k, bs=None, *args, **kwargs):
@@ -339,7 +341,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(self.device)
         control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
-        return x, dict(c_crossattn=[c], c_concat=[control])
+        return x, dict(c_crossattn=c['c_crossattn'], c_concat=c['c_concat'])
 
     def apply_model(self, x_noisy, x_start, t, cond, x_og=None, txt_og=None, *args, **kwargs):
         assert isinstance(cond, dict)
@@ -351,7 +353,9 @@ class ControlLDM(LatentDiffusion):
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=None,
                                   only_mid_control=self.only_mid_control)
         else:
-            control = self.control_model(x=x_noisy, x_start=x_og, hint=torch.cat(cond['c_concat'], 1), timesteps=t,
+            if self.conditioning_key == 'hybrid':
+                xc = torch.cat([x_noisy] + cond['c_concat'], dim=1)
+            control = self.control_model(x=x_noisy, hint=torch.cat(x_og, 1), timesteps=t,
                                          context=cond_txt, txt=txt_og, epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
