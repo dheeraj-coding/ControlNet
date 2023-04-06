@@ -388,7 +388,7 @@ class ControlLDM(LatentDiffusion):
         c_edited = c["edited"][:N]
         c_inp_embed = c["inp_embed"][0][:N]
         c_cat, c = c["c_concat"][0][:N], c["c_crossattn"][0][:N]
-        txt_og = batch[self.cond_stage_key]
+        txt_og = batch[self.cond_stage_key][:N]
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
         log["reconstruction"] = self.decode_first_stage(z)
