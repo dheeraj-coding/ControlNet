@@ -428,7 +428,8 @@ class ControlLDM(LatentDiffusion):
         if unconditional_guidance_scale > 1.0:
             uc_cross = self.get_unconditional_conditioning(N)
             uc_cat = c_cat  # torch.zeros_like(c_cat)
-            uc_full = {"c_concat": [uc_cat], "c_crossattn": [uc_cross]}
+            uc_full = {"c_concat": [uc_cat], "c_crossattn": [uc_cross], "inp_embed": [c_inp_embed],
+                       "edited": [c_edited]}
             samples_cfg, _ = self.sample_log(
                 cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": [c_edited]},
                 batch_size=N, ddim=use_ddim,
