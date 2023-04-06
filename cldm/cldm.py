@@ -416,7 +416,7 @@ class ControlLDM(LatentDiffusion):
         if sample:
             # get denoise row
             samples, z_denoise_row = self.sample_log(
-                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": [c_edited]},
+                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": c_edited},
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta)
             x_samples = self.decode_first_stage(samples)
@@ -429,9 +429,9 @@ class ControlLDM(LatentDiffusion):
             uc_cross = self.get_unconditional_conditioning(N)
             uc_cat = c_cat  # torch.zeros_like(c_cat)
             uc_full = {"c_concat": [uc_cat], "c_crossattn": [uc_cross], "inp_embed": [c_inp_embed],
-                       "edited": [c_edited]}
+                       "edited": c_edited}
             samples_cfg, _ = self.sample_log(
-                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": [c_edited]},
+                cond={"c_concat": [c_cat], "c_crossattn": [c], "inp_embed": [c_inp_embed], "edited": c_edited},
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta,
                 unconditional_guidance_scale=unconditional_guidance_scale,
