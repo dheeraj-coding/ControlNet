@@ -436,7 +436,7 @@ class ControlLDM(LatentDiffusion):
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta,
                 unconditional_guidance_scale=unconditional_guidance_scale,
-                unconditional_conditioning=uc_full,
+                unconditional_conditioning=uc_full, txt_og=txt_og
             )
             x_samples_cfg = self.decode_first_stage(samples_cfg)
             log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
