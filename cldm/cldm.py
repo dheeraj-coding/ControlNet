@@ -465,11 +465,21 @@ class ControlLDM(LatentDiffusion):
 
     def configure_optimizers(self):
         lr = self.learning_rate
-        params = list(self.control_model.parameters())
+        # params = list(self.control_model.parameters())
+        params = list()
+        for name, param in self.control_model.named_parameters():
+            if "neural_operator" in name:
+                continue
+            else:
+                list.append(param)
+        paramg1, paramg2 = self.control_model.neural_operator.collect_params()
+
         if not self.sd_locked:
             params += list(self.model.diffusion_model.output_blocks.parameters())
             params += list(self.model.diffusion_model.out.parameters())
-        opt = torch.optim.AdamW(params, lr=lr)
+
+        paramg3 = {'params': params, 'lr': lr}
+        opt = torch.optim.AdamW([paramg1, paramg2, paramg3])
         return opt
 
     def low_vram_shift(self, is_diffusing):

@@ -44,11 +44,11 @@ class NeuralOperator(nn.Module):
             raise Exception('no such operator %s' % (opts.operator))
 
         if self.isTrain:
-            params = list(self.localizer.parameters()) + list(self.operator.parameters()) + list(
+            self.params = list(self.localizer.parameters()) + list(self.operator.parameters()) + list(
                 self.img_E.parameters())
-
-            self.opt = torch.optim.Adam([{'params': self.text_E.parameters(), 'lr': opts.lr / 10.},
-                                         {'params': params}], lr=opts.lr, betas=(0.5, 0.999))
+            self.lr = opts.lr
+            # self.opt = torch.optim.Adam([{'params': self.text_E.parameters(), 'lr': opts.lr / 10.},
+            #                              {'params': params}], lr=opts.lr, betas=(0.5, 0.999))
 
     def set_input(self, src_img, text, tgt_img):
         self.real_A = src_img
@@ -117,7 +117,7 @@ class NeuralOperator(nn.Module):
 
         # summation
         self.loss_G = self.loss_G_feat * 10 + self.loss_G_attn * 100 + self.loss_disgate * self.w_gate
-        
+
         return self.loss_G
 
     def set_requires_grad(self, nets, requires_grad=False):
@@ -127,3 +127,9 @@ class NeuralOperator(nn.Module):
             if net is not None:
                 for param in net.parameters():
                     param.requires_grad = requires_grad
+
+    def collect_params(self):
+        param1 = {'params': self.text_E.parameters(), 'lr': self.lr / 10}
+        param2 = {'params': self.params, 'lr': self.lr, 'betas': (0.5, 0.999)}
+
+        return param1, param2
