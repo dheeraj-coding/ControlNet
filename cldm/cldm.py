@@ -303,7 +303,7 @@ class ControlNet(nn.Module):
         guided_hint = self.input_hint_block(hint, emb, context)
         self.neural_operator.set_input(hint, prompt, edited)
         neural_hint = self.neural_operator()
-        neural_hint = self.neural_input_block(neural_hint)
+        neural_hint = self.neural_input_block(neural_hint, emb, context)
         print("Neural shape: ", neural_hint.size())
         print("Guided shape: ", guided_hint.size())
 
