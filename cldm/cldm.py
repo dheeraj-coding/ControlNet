@@ -2,6 +2,7 @@ import einops
 import torch
 import torch as th
 import torch.nn as nn
+from models.neural_operator import NeuralOperator
 
 from ldm.modules.diffusionmodules.util import (
     conv_nd,
@@ -76,6 +77,8 @@ class ControlNet(nn.Module):
             num_attention_blocks=None,
             disable_middle_self_attn=False,
             use_linear_in_transformer=False,
+            n_epoch=None,
+            neural_op_config=None
     ):
         super().__init__()
         if use_spatial_transformer:
@@ -280,14 +283,20 @@ class ControlNet(nn.Module):
         self.middle_block_out = self.make_zero_conv(ch)
         self._feature_size += ch
 
+        self.neural_operator = NeuralOperator(neural_op_config)
+        self.n_epoch = n_epoch
+
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
     def forward(self, x, hint, timesteps, context, prompt, edited, **kwargs):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
-        print("Edited shape: ", edited.size())
+
         guided_hint = self.input_hint_block(hint, emb, context)
+        self.neural_operator.set_input(hint, prompt, edited)
+        neural_hint = self.neural_operator()
+        print("Neural shape: ", neural_hint.size())
 
         outs = []
 

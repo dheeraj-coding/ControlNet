@@ -35,6 +35,8 @@ model:
         context_dim: 768
         use_checkpoint: True
         legacy: False
+        n_epoch: 5
+        neural_op_config:
 
     unet_config:
       target: cldm.cldm.ControlledUnetModel
