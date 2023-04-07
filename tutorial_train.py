@@ -1,4 +1,6 @@
 from share import *
+import torch
+from einops import rearrange
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
@@ -17,7 +19,7 @@ sd_locked = True
 only_mid_control = False
 
 # First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
-model = create_model('./models/cldm_v15.yaml').cpu()
+model = create_model('./models/cldm_v15_copy.yaml').cpu()
 model.load_state_dict(load_state_dict(resume_path, location='cpu'))
 model.learning_rate = learning_rate
 model.sd_locked = sd_locked
@@ -37,6 +39,12 @@ class DataTransformer:
         output["jpg"] = self.transform(x['edited_image'])
         output["hint"] = self.transform(x['original_image'])
         output["prompt"] = x['edit_prompt']
+
+        output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
+        output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
+
+        output['jpg'] = (output['jpg'].type(torch.float32) / 127.5) - 1.0
+        output['hint'] = output['hint'].type(torch.float32) / 255.0
 
         return output
 
