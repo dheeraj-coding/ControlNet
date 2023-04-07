@@ -44,6 +44,7 @@ class NeuralOperator(nn.Module):
             raise Exception('no such operator %s' % (opts.operator))
 
         if self.isTrain:
+            self.criterionL1 = torch.nn.L1Loss()
             self.params = list(self.localizer.parameters()) + list(self.operator.parameters()) + list(
                 self.img_E.parameters())
             self.lr = opts.lr
