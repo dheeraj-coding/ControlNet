@@ -149,22 +149,27 @@ class ControlNet(nn.Module):
         )
         self.zero_convs = nn.ModuleList([self.make_zero_conv(model_channels)])
 
+        # self.input_hint_block = TimestepEmbedSequential(
+        #     conv_nd(dims, hint_channels, 16, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 16, 16, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 16, 32, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 32, 32, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 32, 96, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 96, 96, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 96, 256, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
+        # )
         self.input_hint_block = TimestepEmbedSequential(
-            conv_nd(dims, hint_channels, 16, 3, padding=1),
+            conv_nd(dims, hint_channels, 256, 3, padding=1),
             nn.SiLU(),
-            conv_nd(dims, 16, 16, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 16, 32, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 32, 32, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 32, 96, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 96, 96, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 96, 256, 3, padding=1, stride=2),
-            nn.SiLU(),
-            zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
+            zero_module(conv_nd(dims, 256, model_channels, 3, padding=1, stride=2))
         )
 
         self._feature_size = model_channels
@@ -293,13 +298,13 @@ class ControlNet(nn.Module):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-        guided_hint = self.input_hint_block(hint, emb, context)
+        # guided_hint = self.input_hint_block(hint, emb, context)
         self.neural_op.set_input(hint, txt, edited)
         temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
         use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
-        hint2 = self.neural_op()
+        guided_hint = self.neural_op(use_gt_attn_rate, temperature_rate)
+        guided_hint = self.input_hint_block(guided_hint, emb, context)
 
-        print("Hint dims: ", hint2.size())
         print("Guide dims: ", guided_hint.size())
 
         outs = []
