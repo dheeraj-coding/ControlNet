@@ -37,6 +37,13 @@ model:
         legacy: False
         n_epoch: 5
         neural_op_config:
+          img_dim: 3
+          n_downsampling: 2
+          w_gate: 1.0
+          operator: adaroute
+          num_adablock: 4
+          temperature: 1.0
+          lr: 0.0002
 
     unet_config:
       target: cldm.cldm.ControlledUnetModel
@@ -68,12 +75,12 @@ model:
           out_ch: 3
           ch: 128
           ch_mult:
-          - 1
-          - 2
-          - 4
-          - 4
+            - 1
+            - 2
+            - 4
+            - 4
           num_res_blocks: 2
-          attn_resolutions: []
+          attn_resolutions: [ ]
           dropout: 0.0
         lossconfig:
           target: torch.nn.Identity
