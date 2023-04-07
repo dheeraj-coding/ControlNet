@@ -38,7 +38,7 @@ class DataTransformer:
         output = dict()
         output["jpg"] = self.transform(x['edited_image'])
         output["hint"] = self.transform(x['original_image'])
-        output["prompt"] = x['edit_prompt']
+        output["txt"] = x['edit_prompt']
 
         output['jpg'] = rearrange(output['jpg'], 'c h w -> h w c')
         output['hint'] = rearrange(output['hint'], 'c h w -> h w c')
@@ -55,7 +55,7 @@ dataset = dataset.shuffle(buffer_size=10000, seed=42)
 piltransformer = DataTransformer()
 dataset = dataset.map(lambda x: piltransformer.transformer(x))
 dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_image", "edit_prompt", "edited_prompt"])
-dataloader = DataLoader(dataset, num_workers=4, batch_size=batch_size)
+dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq)
 trainer = pl.Trainer(accelerator="gpu", devices=1, precision=32, callbacks=[logger])
 
