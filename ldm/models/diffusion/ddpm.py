@@ -537,6 +537,7 @@ class LatentDiffusion(DDPM):
                  scale_factor=1.0,
                  scale_by_std=False,
                  force_null_conditioning=False,
+                 unconditional_rate=0.05,
                  *args, **kwargs):
         self.force_null_conditioning = force_null_conditioning
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
@@ -582,6 +583,8 @@ class LatentDiffusion(DDPM):
             print(" +++++++++++ WARNING: RESETTING NUM_EMA UPDATES TO ZERO +++++++++++ ")
             assert self.use_ema
             self.model_ema.reset_num_updates()
+
+        self.unconditional_rate = unconditional_rate
 
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -816,10 +819,11 @@ class LatentDiffusion(DDPM):
             if bs is not None:
                 precond_images = precond_images[:bs]
 
-            uncond = 0.05
+            uncond = self.unconditional_rate
             random = torch.rand(x.size(0), device=x.device)
             input_mask = 1 - rearrange((random >= uncond).float() * (random < 3 * uncond).float(), "n -> n 1 1 1")
-            cond['precondimg'] = [input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
+            cond['precondimg'] = [
+                input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
 
         cond['inputprompt'] = c
         out = [z, cond]
