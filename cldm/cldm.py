@@ -22,9 +22,6 @@ from ldm.models.diffusion.ddim import DDIMSampler
 
 class ControlledUnetModel(UNetModel):
     def forward(self, x, timesteps=None, context=None, control=None, c_concat=None, only_mid_control=False, **kwargs):
-
-        if self.conditioning_key == 'hybrid':
-            x = torch.cat([x] + c_concat, dim=1)
         hs = []
         with torch.no_grad():
             t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
@@ -335,6 +332,9 @@ class ControlLDM(LatentDiffusion):
         diffusion_model = self.model.diffusion_model
 
         cond_txt = torch.cat(cond['c_crossattn'], 1)
+
+        if self.conditioning_key == 'hybrid':
+            x_noisy = torch.cat([x_noisy] + cond['c_concat'], dim=1)
 
         if cond['c_control'] is None:
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=None,
