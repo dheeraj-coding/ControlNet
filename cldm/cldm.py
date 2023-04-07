@@ -283,10 +283,10 @@ class ControlNet(nn.Module):
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
-    def forward(self, x, hint, timesteps, context, **kwargs):
+    def forward(self, x, hint, timesteps, context, prompt, edited, **kwargs):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
-
+        print("Edited shape: ", edited.size())
         guided_hint = self.input_hint_block(hint, emb, context)
 
         outs = []
@@ -325,7 +325,20 @@ class ControlLDM(LatentDiffusion):
         control = control.to(self.device)
         control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
-        return x, dict(c_crossattn=[c['inputprompt']], c_control=[control], c_concat=c['precondimg'])
+
+        edited = batch[self.first_stage_key]
+        if bs is not None:
+            edited = edited[:bs]
+        edited = edited.to(self.device)
+        edited = einops.rearrange(edited, 'b h w c -> b c h w')
+        edited = edited.to(memory_format=torch.contiguous_format).float()
+
+        prompt = batch[self.cond_stage_key]
+        if bs is not None:
+            prompt = prompt[:bs]
+
+        return x, dict(c_crossattn=[c['inputprompt']], c_control=[control], c_concat=c['precondimg'], c_edited=edited,
+                       c_prompt=prompt)
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):
         assert isinstance(cond, dict)
@@ -340,7 +353,8 @@ class ControlLDM(LatentDiffusion):
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=None,
                                   only_mid_control=self.only_mid_control)
         else:
-            control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_control'], 1), timesteps=t, context=cond_txt)
+            control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_control'], 1), timesteps=t, context=cond_txt,
+                                         prompt=cond['c_prompt'], edited=cond['c_edited'])
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
                                   only_mid_control=self.only_mid_control)
@@ -361,6 +375,8 @@ class ControlLDM(LatentDiffusion):
 
         log = dict()
         z, c = self.get_input(batch, self.first_stage_key, bs=N)
+        c_edit = c["c_edited"][:N]
+        c_prompt = c["c_prompt"][:N]
         c_cat = c["c_concat"][0][:N]
         c_cont, c = c["c_control"][0][:N], c["c_crossattn"][0][:N]
         N = min(z.shape[0], N)
@@ -390,7 +406,8 @@ class ControlLDM(LatentDiffusion):
         if sample:
             # get denoise row
             samples, z_denoise_row = self.sample_log(
-                cond={"c_control": [c_cont], "c_crossattn": [c], "c_concat": [c_cat]},
+                cond={"c_control": [c_cont], "c_crossattn": [c], "c_concat": [c_cat], "c_edited": c_edit,
+                      "c_prompt": c_prompt},
                 batch_size=N, ddim=use_ddim,
                 ddim_steps=ddim_steps, eta=ddim_eta)
             x_samples = self.decode_first_stage(samples)
@@ -402,13 +419,16 @@ class ControlLDM(LatentDiffusion):
         if unconditional_guidance_scale > 1.0:
             uc_cross = self.get_unconditional_conditioning(N)
             uc_cat = c_cont  # torch.zeros_like(c_cat)
-            uc_full = {"c_control": [uc_cat], "c_crossattn": [uc_cross], "c_concat": [c_cat]}
-            samples_cfg, _ = self.sample_log(cond={"c_control": [c_cont], "c_crossattn": [c], "c_concat": [c_cat]},
-                                             batch_size=N, ddim=use_ddim,
-                                             ddim_steps=ddim_steps, eta=ddim_eta,
-                                             unconditional_guidance_scale=unconditional_guidance_scale,
-                                             unconditional_conditioning=uc_full,
-                                             )
+            uc_full = {"c_control": [uc_cat], "c_crossattn": [uc_cross], "c_concat": [c_cat], "c_edited": c_edit,
+                       "c_prompt": c_prompt}
+            samples_cfg, _ = self.sample_log(
+                cond={"c_control": [c_cont], "c_crossattn": [c], "c_concat": [c_cat], "c_edited": c_edit,
+                      "c_prompt": c_prompt},
+                batch_size=N, ddim=use_ddim,
+                ddim_steps=ddim_steps, eta=ddim_eta,
+                unconditional_guidance_scale=unconditional_guidance_scale,
+                unconditional_conditioning=uc_full,
+            )
             x_samples_cfg = self.decode_first_stage(samples_cfg)
             log[f"samples_cfg_scale_{unconditional_guidance_scale:.2f}"] = x_samples_cfg
 
