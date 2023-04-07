@@ -303,8 +303,8 @@ class ControlNet(nn.Module):
         self.neural_op.set_input(hint, txt, edited)
         temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
         use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
-        guided_hint = self.neural_op(use_gt_attn_rate, temperature_rate)
-        guided_hint = self.input_neural_block(guided_hint, emb, context)
+        neural_output = self.neural_op(use_gt_attn_rate, temperature_rate)
+        guided_hint = self.input_neural_block(neural_output, emb, context)
 
         print("Guide dims: ", guided_hint.size())
 
