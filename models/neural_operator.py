@@ -122,7 +122,8 @@ class NeuralOperator(nn.Module):
 
         # summation
         self.loss_G = self.loss_G_feat * 10 + self.loss_G_attn * 100 + self.loss_disgate * self.w_gate
-        self.loss_G.backward(retain_graph=True)
+        # self.loss_G.backward(retain_graph=True)
+        return self.loss_G
 
     def set_requires_grad(self, nets, requires_grad=False):
         if not isinstance(nets, list):

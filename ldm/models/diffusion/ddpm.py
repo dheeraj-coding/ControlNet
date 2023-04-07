@@ -455,12 +455,14 @@ class DDPM(pl.LightningModule):
             optControl, optNeural = self.optimizers()
 
             optNeural.zero_grad()
-            self.control_model.neural_op.backward()
+            lossNeural = self.control_model.neural_op.backward()
+            self.manual_backward(lossNeural)
             optNeural.step()
 
             optControl.zero_grad()
-            lossSum = torch.sum(loss)
-            lossSum.backward()
+            # lossSum = torch.sum(loss)
+            # lossSum.backward()
+            self.manual_backward(loss)
             optControl.step()
         # loss += neuralLoss
         # return loss
