@@ -538,6 +538,7 @@ class LatentDiffusion(DDPM):
                  scale_by_std=False,
                  force_null_conditioning=False,
                  unconditional_rate=0.05,
+                 neural_weight=0.1,
                  *args, **kwargs):
         self.force_null_conditioning = force_null_conditioning
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
@@ -585,6 +586,7 @@ class LatentDiffusion(DDPM):
             self.model_ema.reset_num_updates()
 
         self.unconditional_rate = unconditional_rate
+        self.neural_weight = neural_weight
 
     def make_cond_schedule(self, ):
         self.cond_ids = torch.full(size=(self.num_timesteps,), fill_value=self.num_timesteps - 1, dtype=torch.long)
@@ -937,7 +939,7 @@ class LatentDiffusion(DDPM):
         loss += (self.original_elbo_weight * loss_vlb)
 
         loss_neural = self.control_model.neural_operator.backward()
-        loss += loss_neural
+        loss += (self.neural_weight * loss_neural)
         loss_dict.update({f'{prefix}/loss_neural': loss_neural})
 
         loss_dict.update({f'{prefix}/loss': loss})

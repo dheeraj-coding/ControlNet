@@ -18,6 +18,7 @@ model:
     use_ema: True
     only_mid_control: False
     unconditional_rate: 0.05
+    neural_weight: 0.1
 
     control_stage_config:
       target: cldm.cldm.ControlNet
