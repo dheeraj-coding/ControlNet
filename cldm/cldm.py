@@ -54,6 +54,7 @@ class ControlNet(nn.Module):
             in_channels,
             model_channels,
             hint_channels,
+            neural_channels,
             num_res_blocks,
             attention_resolutions,
             dropout=0,
@@ -286,6 +287,12 @@ class ControlNet(nn.Module):
         self.neural_operator = NeuralOperator(neural_op_config)
         self.n_epoch = n_epoch
 
+        self.neural_input_block = TimestepEmbedSequential(
+            conv_nd(dims, neural_channels, 256, 3, padding=1, stride=2),
+            nn.SiLU(),
+            zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
+        )
+
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
@@ -296,7 +303,9 @@ class ControlNet(nn.Module):
         guided_hint = self.input_hint_block(hint, emb, context)
         self.neural_operator.set_input(hint, prompt, edited)
         neural_hint = self.neural_operator()
+        neural_hint = self.neural_input_block(neural_hint)
         print("Neural shape: ", neural_hint.size())
+        print("Guided shape: ", guided_hint.size())
 
         outs = []
 

@@ -25,6 +25,7 @@ model:
         image_size: 32 # unused
         in_channels: 8
         hint_channels: 3
+        neural_channels: 256
         model_channels: 320
         attention_resolutions: [ 4, 2, 1 ]
         num_res_blocks: 2
