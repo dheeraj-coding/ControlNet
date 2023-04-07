@@ -94,6 +94,11 @@ class NeuralOperator(nn.Module):
         # fuse original and edited feature
         self.fake_B_feat = torch.mul(edit_feat, attn) + torch.mul(real_A_feat, (1 - attn))
 
+        if self.isTrain:
+            self.attn_dis = [self.attn_gt[:1].detach().cpu(), self.attn[:1].detach().cpu()]
+        else:
+            self.attn_dis = torch.nn.functional.interpolate(self.attn, size=(self.real_A.size(2), self.real_A.size(3)),
+                                                            mode="bilinear")
         return self.fake_B_feat
 
     def backward(self):
@@ -134,3 +139,8 @@ class NeuralOperator(nn.Module):
         param2 = {'params': self.params, 'lr': self.lr, 'betas': (0.5, 0.999)}
 
         return param1, param2
+
+    def get_log_image(self):
+        attn_dis = torch.cat([torch.cat([img, img, img], dim=1) for img in self.attn_dis], dim=0)
+        attn_dis = torchvision.utils.make_grid(attn_dis, nrow=max(1, attn_dis.size(0)))
+        return attn_dis
