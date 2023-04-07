@@ -808,7 +808,7 @@ class LatentDiffusion(DDPM):
             if self.use_positional_encodings:
                 pos_x, pos_y = self.compute_latent_shifts(batch)
                 c = {'pos_x': pos_x, 'pos_y': pos_y}
-
+        cond = dict()
         if self.conditioning_key == 'hybrid':
             precond_images = super().get_input(batch, self.control_key)
             precond_images = rearrange(precond_images, 'b h w c -> b c h w')
@@ -819,9 +819,10 @@ class LatentDiffusion(DDPM):
             uncond = 0.05
             random = torch.rand(x.size(0), device=x.device)
             input_mask = 1 - rearrange((random >= uncond).float() * (random < 3 * uncond).float(), "n -> n 1 1 1")
-            c['c_concat'] = [input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
+            cond['precondimg'] = [input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
 
-        out = [z, c]
+        cond['inputprompt'] = c
+        out = [z, cond]
         if return_first_stage_outputs:
             xrec = self.decode_first_stage(z)
             out.extend([x, xrec])

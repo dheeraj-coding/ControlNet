@@ -325,7 +325,7 @@ class ControlLDM(LatentDiffusion):
         control = control.to(self.device)
         control = einops.rearrange(control, 'b h w c -> b c h w')
         control = control.to(memory_format=torch.contiguous_format).float()
-        return x, dict(c_crossattn=[c], c_control=[control])
+        return x, dict(c_crossattn=[c['inputprompt']], c_control=[control], c_concat=c['precondimg'])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):
         assert isinstance(cond, dict)
