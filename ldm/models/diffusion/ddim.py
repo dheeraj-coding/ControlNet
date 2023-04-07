@@ -196,7 +196,7 @@ class DDIMSampler(object):
                 c_in = dict()
                 for k in c:
                     if k == 'c_prompt':
-                        c_in[k] = c[k]
+                        c_in[k] = c[k] + c[k]
                     elif isinstance(c[k], list):
                         c_in[k] = [torch.cat([
                             unconditional_conditioning[k][i],
