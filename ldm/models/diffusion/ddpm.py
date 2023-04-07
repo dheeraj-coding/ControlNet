@@ -456,7 +456,7 @@ class DDPM(pl.LightningModule):
 
             optNeural.zero_grad()
             lossNeural = self.control_model.neural_op.backward()
-            self.manual_backward(lossNeural)
+            self.manual_backward(lossNeural, retain_graph=True)
             optNeural.step()
 
             optControl.zero_grad()
