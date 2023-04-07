@@ -150,23 +150,23 @@ class ControlNet(nn.Module):
         )
         self.zero_convs = nn.ModuleList([self.make_zero_conv(model_channels)])
 
-        self.input_hint_block = TimestepEmbedSequential(
-            conv_nd(dims, hint_channels, 16, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 16, 16, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 16, 32, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 32, 32, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 32, 96, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 96, 96, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 96, 256, 3, padding=1, stride=2),
-            nn.SiLU(),
-            zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
-        )
+        # self.input_hint_block = TimestepEmbedSequential(
+        #     conv_nd(dims, hint_channels, 16, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 16, 16, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 16, 32, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 32, 32, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 32, 96, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 96, 96, 3, padding=1),
+        #     nn.SiLU(),
+        #     conv_nd(dims, 96, 256, 3, padding=1, stride=2),
+        #     nn.SiLU(),
+        #     zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
+        # )
 
         self._feature_size = model_channels
         input_block_chans = [model_channels]
@@ -296,16 +296,19 @@ class ControlNet(nn.Module):
     def make_zero_conv(self, channels):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
-    def forward(self, x, hint, timesteps, context, prompt, edited, **kwargs):
+    def forward(self, x, hint, timesteps, context, prompt, edited, current_epoch=None, **kwargs):
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
         emb = self.time_embed(t_emb)
 
-        guided_hint = self.input_hint_block(hint, emb, context)
+        # guided_hint = self.input_hint_block(hint, emb, context)
+        temperature_rate = 0
+        use_gt_attn_rate = 0
+        if current_epoch is not None:
+            temperature_rate = max(0, 1 - (current_epoch + 1) / float(self.n_epoch))
+            use_gt_attn_rate = max(0, 1 - current_epoch / float(self.n_epoch))
         self.neural_operator.set_input(hint, prompt, edited)
-        neural_hint = self.neural_operator()
-        neural_hint = self.neural_input_block(neural_hint, emb, context)
-        print("Neural shape: ", neural_hint.size())
-        print("Guided shape: ", guided_hint.size())
+        neural_hint = self.neural_operator(use_gt_attn_rate, temperature_rate)
+        guided_hint = self.neural_input_block(neural_hint, emb, context)
 
         outs = []
 
@@ -372,7 +375,7 @@ class ControlLDM(LatentDiffusion):
                                   only_mid_control=self.only_mid_control)
         else:
             control = self.control_model(x=x_noisy, hint=torch.cat(cond['c_control'], 1), timesteps=t, context=cond_txt,
-                                         prompt=cond['c_prompt'], edited=cond['c_edited'])
+                                         prompt=cond['c_prompt'], edited=cond['c_edited'], epoch=self.current_epoch)
             control = [c * scale for c, scale in zip(control, self.control_scales)]
             eps = diffusion_model(x=x_noisy, timesteps=t, context=cond_txt, control=control,
                                   only_mid_control=self.only_mid_control)
