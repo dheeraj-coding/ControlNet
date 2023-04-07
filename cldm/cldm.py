@@ -471,7 +471,7 @@ class ControlLDM(LatentDiffusion):
             if "neural_operator" in name:
                 continue
             else:
-                list.append(param)
+                params.append(param)
         paramg1, paramg2 = self.control_model.neural_operator.collect_params()
 
         if not self.sd_locked:
