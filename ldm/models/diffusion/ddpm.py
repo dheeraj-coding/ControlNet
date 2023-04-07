@@ -935,8 +935,12 @@ class LatentDiffusion(DDPM):
         loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
         loss_dict.update({f'{prefix}/loss_vlb': loss_vlb})
         loss += (self.original_elbo_weight * loss_vlb)
-        loss_dict.update({f'{prefix}/loss': loss})
 
+        loss_neural = self.control_model.neural_operator.backward()
+        loss += loss_neural
+        loss_dict.update({f'{prefix}/loss_neural': loss_neural})
+
+        loss_dict.update({f'{prefix}/loss': loss})
         return loss, loss_dict
 
     def p_mean_variance(self, x, c, t, clip_denoised: bool, return_codebook_ids=False, quantize_denoised=False,
