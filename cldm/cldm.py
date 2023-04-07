@@ -168,9 +168,9 @@ class ControlNet(nn.Module):
             zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
         )
         self.input_neural_block = TimestepEmbedSequential(
-            zero_module(conv_nd(dims, neural_channels, model_channels, 3, padding=1, stride=2)),
-            # nn.SiLU(),
-            # zero_module(conv_nd(dims, 256, model_channels, 3, padding=1, stride=2))
+            conv_nd(dims, neural_channels, 256, 3, padding=1),
+            nn.SiLU(),
+            zero_module(conv_nd(dims, 256, model_channels, 3, padding=1, stride=2))
         )
 
         self._feature_size = model_channels
@@ -296,34 +296,35 @@ class ControlNet(nn.Module):
         return TimestepEmbedSequential(zero_module(conv_nd(self.dims, channels, channels, 1, padding=0)))
 
     def forward(self, x, txt, hint, timesteps, context, epoch, edited=None, **kwargs):
-        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-        emb = self.time_embed(t_emb)
+        with torch.autograd.set_detect_anomaly(True):
+            t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+            emb = self.time_embed(t_emb)
 
-        # guided_hint = self.input_hint_block(hint, emb, context)
-        self.neural_op.set_input(hint, txt, edited)
-        temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
-        use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
-        neural_output = self.neural_op(use_gt_attn_rate, temperature_rate)
-        guided_hint = self.input_neural_block(neural_output, emb, context)
+            # guided_hint = self.input_hint_block(hint, emb, context)
+            self.neural_op.set_input(hint, txt, edited)
+            temperature_rate = max(0, 1 - (epoch + 1) / float(self.n_ep))
+            use_gt_attn_rate = max(0, 1 - epoch / float(self.n_ep))
+            neural_output = self.neural_op(use_gt_attn_rate, temperature_rate)
+            guided_hint = self.input_neural_block(neural_output, emb, context)
 
-        print("Guide dims: ", guided_hint.size())
+            print("Guide dims: ", guided_hint.size())
 
-        outs = []
+            outs = []
 
-        h = x.type(self.dtype)
-        for module, zero_conv in zip(self.input_blocks, self.zero_convs):
-            if guided_hint is not None:
-                h = module(h, emb, context)
-                h += guided_hint
-                guided_hint = None
-            else:
-                h = module(h, emb, context)
-            outs.append(zero_conv(h, emb, context))
+            h = x.type(self.dtype)
+            for module, zero_conv in zip(self.input_blocks, self.zero_convs):
+                if guided_hint is not None:
+                    h = module(h, emb, context)
+                    h += guided_hint
+                    guided_hint = None
+                else:
+                    h = module(h, emb, context)
+                outs.append(zero_conv(h, emb, context))
 
-        h = self.middle_block(h, emb, context)
-        outs.append(self.middle_block_out(h, emb, context))
+            h = self.middle_block(h, emb, context)
+            outs.append(self.middle_block_out(h, emb, context))
 
-        return outs
+            return outs
 
 
 class ControlLDM(LatentDiffusion):
