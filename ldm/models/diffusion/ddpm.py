@@ -438,28 +438,29 @@ class DDPM(pl.LightningModule):
             for i in range(len(batch[k])):
                 if self.ucg_prng.choice(2, p=[1 - p, p]):
                     batch[k][i] = val
+        with torch.autograd.set_detect_anomaly(True):
 
-        loss, loss_dict = self.shared_step(batch)
+            loss, loss_dict = self.shared_step(batch)
 
-        self.log_dict(loss_dict, prog_bar=True,
-                      logger=True, on_step=True, on_epoch=True)
+            self.log_dict(loss_dict, prog_bar=True,
+                          logger=True, on_step=True, on_epoch=True)
 
-        self.log("global_step", self.global_step,
-                 prog_bar=True, logger=True, on_step=True, on_epoch=False)
+            self.log("global_step", self.global_step,
+                     prog_bar=True, logger=True, on_step=True, on_epoch=False)
 
-        if self.use_scheduler:
-            lr = self.optimizers().param_groups[0]['lr']
-            self.log('lr_abs', lr, prog_bar=True, logger=True, on_step=True, on_epoch=False)
+            if self.use_scheduler:
+                lr = self.optimizers().param_groups[0]['lr']
+                self.log('lr_abs', lr, prog_bar=True, logger=True, on_step=True, on_epoch=False)
 
-        optControl, optNeural = self.optimizers()
+            optControl, optNeural = self.optimizers()
 
-        optNeural.zero_grad()
-        self.control_model.neural_op.backward()
-        optNeural.step()
+            optNeural.zero_grad()
+            self.control_model.neural_op.backward()
+            optNeural.step()
 
-        optControl.zero_grad()
-        loss.sum().backward()
-        optControl.step()
+            optControl.zero_grad()
+            loss.sum().backward()
+            optControl.step()
         # loss += neuralLoss
         # return loss
 
