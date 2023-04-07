@@ -55,6 +55,7 @@ class ControlNet(nn.Module):
             in_channels,
             model_channels,
             hint_channels,
+            neural_channels,
             num_res_blocks,
             attention_resolutions,
             dropout=0,
@@ -167,7 +168,7 @@ class ControlNet(nn.Module):
             zero_module(conv_nd(dims, 256, model_channels, 3, padding=1))
         )
         self.input_neural_block = TimestepEmbedSequential(
-            conv_nd(dims, hint_channels, 256, 3, padding=1),
+            conv_nd(dims, neural_channels, 256, 3, padding=1),
             nn.SiLU(),
             zero_module(conv_nd(dims, 256, model_channels, 3, padding=1, stride=2))
         )
