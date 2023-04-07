@@ -811,6 +811,8 @@ class LatentDiffusion(DDPM):
 
         if self.conditioning_key == 'hybrid':
             precond_images = super().get_input(batch, self.control_key)
+            precond_images = rearrange(precond_images, 'b h w c -> b c h w')
+            precond_images = precond_images.to(memory_format=torch.contiguous_format).float()
             if bs is not None:
                 precond_images = precond_images[:bs]
 
