@@ -27,7 +27,6 @@ from ldm.models.autoencoder import IdentityFirstStage, AutoencoderKL
 from ldm.modules.diffusionmodules.util import make_beta_schedule, extract_into_tensor, noise_like
 from ldm.models.diffusion.ddim import DDIMSampler
 
-
 __conditioning_keys__ = {'concat': 'c_concat',
                          'crossattn': 'c_crossattn',
                          'adm': 'y'}
@@ -90,6 +89,7 @@ class DDPM(pl.LightningModule):
         self.channels = channels
         self.use_positional_encodings = use_positional_encodings
         self.model = DiffusionWrapper(unet_config, conditioning_key)
+        self.conditioning_key = conditioning_key
         count_params(self.model, verbose=True)
         self.use_ema = use_ema
         if self.use_ema:
@@ -112,7 +112,8 @@ class DDPM(pl.LightningModule):
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys, only_model=load_only_unet)
             if reset_ema:
                 assert self.use_ema
-                print(f"Resetting ema to pure model weights. This is useful when restoring from an ema-only checkpoint.")
+                print(
+                    f"Resetting ema to pure model weights. This is useful when restoring from an ema-only checkpoint.")
                 self.model_ema = LitEma(self.model)
         if reset_num_ema_updates:
             print(" +++++++++++ WARNING: RESETTING NUM_EMA UPDATES TO ZERO +++++++++++ ")
@@ -420,8 +421,9 @@ class DDPM(pl.LightningModule):
         x = batch[k]
         if len(x.shape) == 3:
             x = x[..., None]
-        x = rearrange(x, 'b h w c -> b c h w')
-        x = x.to(memory_format=torch.contiguous_format).float()
+        if k == self.first_stage_key:
+            x = rearrange(x, 'b h w c -> b c h w')
+            x = x.to(memory_format=torch.contiguous_format).float()
         return x
 
     def shared_step(self, batch):
@@ -806,6 +808,17 @@ class LatentDiffusion(DDPM):
             if self.use_positional_encodings:
                 pos_x, pos_y = self.compute_latent_shifts(batch)
                 c = {'pos_x': pos_x, 'pos_y': pos_y}
+
+        if self.conditioning_key == 'hybrid':
+            precond_images = super().get_input(batch, self.control_key)
+            if bs is not None:
+                precond_images = precond_images[:bs]
+
+            uncond = 0.05
+            random = torch.rand(x.size(0), device=x.device)
+            input_mask = 1 - rearrange((random >= uncond).float() * (random < 3 * uncond).float(), "n -> n 1 1 1")
+            c['c_concat'] = [input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
+
         out = [z, c]
         if return_first_stage_outputs:
             xrec = self.decode_first_stage(z)
@@ -1462,7 +1475,7 @@ class LatentUpscaleDiffusion(LatentDiffusion):
                     uc[k] = [uc_tmp]
                 elif k == "c_adm":  # todo: only run with text-based guidance?
                     assert isinstance(c[k], torch.Tensor)
-                    #uc[k] = torch.ones_like(c[k]) * self.low_scale_model.max_noise_level
+                    # uc[k] = torch.ones_like(c[k]) * self.low_scale_model.max_noise_level
                     uc[k] = c[k]
                 elif isinstance(c[k], list):
                     uc[k] = [c[k][i] for i in range(len(c[k]))]
@@ -1738,6 +1751,7 @@ class LatentUpscaleFinetuneDiffusion(LatentFinetuneDiffusion):
     """
         condition on low-res image (and optionally on some spatial noise augmentation)
     """
+
     def __init__(self, concat_keys=("lr",), reshuffle_patch_size=None,
                  low_scale_config=None, low_scale_key=None, *args, **kwargs):
         super().__init__(concat_keys=concat_keys, *args, **kwargs)
