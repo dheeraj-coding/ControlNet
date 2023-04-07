@@ -56,7 +56,7 @@ piltransformer = DataTransformer()
 dataset = dataset.map(lambda x: piltransformer.transformer(x))
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq)
-trainer = pl.Trainer(gpus=2, precision=32, callbacks=[logger])
+trainer = pl.Trainer(accelerator="gpu", devices=1, precision=32, callbacks=[logger])
 
 # Train!
 trainer.fit(model, dataloader)
