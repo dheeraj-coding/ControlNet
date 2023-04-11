@@ -1,3 +1,5 @@
+import sys
+
 from share import *
 import torch
 from einops import rearrange
@@ -20,7 +22,7 @@ only_mid_control = False
 
 # First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
 model = create_model('./models/cldm_v15_copy.yaml').cpu()
-model.load_state_dict(load_state_dict(resume_path, location='cpu'))
+model.load_state_dict(load_state_dict(resume_path, location='cpu'), strict=False)
 model.learning_rate = learning_rate
 model.sd_locked = sd_locked
 model.only_mid_control = only_mid_control
@@ -58,7 +60,16 @@ dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_i
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq,
                      log_images_kwargs={"sample": True, "unconditional_guidance_scale": 1.0, "N": 1})
-trainer = pl.Trainer(accelerator="gpu", devices=1, precision=32, callbacks=[logger])
+
+num_nodes = sys.argv[1]
+if not num_nodes.isnumeric():
+    print("num_nodes must be a valid number")
+    exit(-1)
+num_nodes = int(num_nodes)
+num_gpus = torch.cuda.device_count()
+batch_size = batch_size * num_nodes * num_gpus
+
+trainer = pl.Trainer(accelerator="gpu", devices=-1, precision=32, callbacks=[logger], strategy='ddp')
 
 # Train!
 trainer.fit(model, dataloader)
