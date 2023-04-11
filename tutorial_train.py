@@ -14,11 +14,18 @@ from torchvision import transforms
 
 # Configs
 resume_path = './models/control_sd15_ini.ckpt'
-batch_size = 4
+batch_size = 2
 logger_freq = 300
 learning_rate = 1e-5
 sd_locked = True
 only_mid_control = False
+
+num_nodes = sys.argv[1]
+if not num_nodes.isnumeric():
+    print("num_nodes must be a valid number")
+    exit(-1)
+num_nodes = int(num_nodes)
+num_gpus = torch.cuda.device_count()
 
 # First use cpu to load models. Pytorch Lightning will automatically move it to GPUs.
 model = create_model('./models/cldm_v15_copy.yaml').cpu()
@@ -51,7 +58,7 @@ class DataTransformer:
         return output
 
 
-# dataset = MyDataset()
+#dataset = MyDataset()
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
 dataset = dataset.shuffle(buffer_size=10000, seed=42)
 piltransformer = DataTransformer()
@@ -61,15 +68,7 @@ dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq,
                      log_images_kwargs={"sample": True})
 
-num_nodes = sys.argv[1]
-if not num_nodes.isnumeric():
-    print("num_nodes must be a valid number")
-    exit(-1)
-num_nodes = int(num_nodes)
-num_gpus = torch.cuda.device_count()
-batch_size = batch_size * num_nodes * num_gpus
-
-trainer = pl.Trainer(accelerator="gpu", devices=-1, precision=32, callbacks=[logger], strategy='ddp')
+trainer = pl.Trainer(accelerator="gpu", devices=num_gpus, precision=32, num_nodes=num_nodes, callbacks=[logger], strategy='ddp')
 
 # Train!
 trainer.fit(model, dataloader)
