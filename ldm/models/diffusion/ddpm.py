@@ -827,6 +827,11 @@ class LatentDiffusion(DDPM):
             cond['precondimg'] = [
                 input_mask * self.encode_first_stage((precond_images.to(self.device))).mode().detach()]
 
+            gt_images = super().get_input(batch, self.first_stage_key)
+            if bs is not None:
+                gt_images = gt_images[:bs]
+            cond['gt_imgs'] = gt_images
+
         cond['inputprompt'] = c
         out = [z, cond]
         if return_first_stage_outputs:

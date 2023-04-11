@@ -359,7 +359,7 @@ class ControlLDM(LatentDiffusion):
             prompt = prompt[:bs]
 
         return x, dict(c_crossattn=[c['inputprompt']], c_control=[control], c_concat=c['precondimg'], c_edited=edited,
-                       c_prompt=prompt)
+                       c_prompt=prompt, gt_imgs=c['gt_imgs'])
 
     def apply_model(self, x_noisy, t, cond, *args, **kwargs):
         assert isinstance(cond, dict)
@@ -406,7 +406,7 @@ class ControlLDM(LatentDiffusion):
         log["control"] = c_cont * 2.0 - 1.0
         log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
         log['neural_masks'] = self.control_model.neural_operator.get_log_image()
-        log['ground_truth'] = z
+        log['ground_truth'] = c['gt_imgs'][:N]
 
         if plot_diffusion_rows:
             # get diffusion row
