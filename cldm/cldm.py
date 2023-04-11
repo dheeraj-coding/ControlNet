@@ -405,8 +405,7 @@ class ControlLDM(LatentDiffusion):
         log["reconstruction"] = self.decode_first_stage(z)
         log["control"] = c_cont * 2.0 - 1.0
         log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
-        if N == 1:
-            log['neural_masks'] = self.control_model.neural_operator.get_log_image()
+        log['neural_masks'] = self.control_model.neural_operator.get_log_image()
 
         if plot_diffusion_rows:
             # get diffusion row

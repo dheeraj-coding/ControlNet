@@ -95,7 +95,7 @@ class NeuralOperator(nn.Module):
         self.fake_B_feat = torch.mul(edit_feat, attn) + torch.mul(real_A_feat, (1 - attn))
 
         if self.isTrain:
-            self.attn_dis = [self.attn_gt[:1].detach().cpu(), self.attn[:1].detach().cpu()]
+            self.attn_dis = [self.attn_gt.detach().cpu(), self.attn.detach().cpu()]
         else:
             self.attn_dis = torch.nn.functional.interpolate(self.attn, size=(self.real_A.size(2), self.real_A.size(3)),
                                                             mode="bilinear")

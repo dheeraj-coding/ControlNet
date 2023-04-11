@@ -59,7 +59,7 @@ dataset = dataset.map(lambda x: piltransformer.transformer(x))
 dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_image", "edit_prompt", "edited_prompt"])
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
 logger = ImageLogger(batch_frequency=logger_freq,
-                     log_images_kwargs={"sample": True, "unconditional_guidance_scale": 1.0, "N": 1})
+                     log_images_kwargs={"sample": True})
 
 num_nodes = sys.argv[1]
 if not num_nodes.isnumeric():
