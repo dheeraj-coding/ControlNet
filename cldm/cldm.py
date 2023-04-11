@@ -399,6 +399,7 @@ class ControlLDM(LatentDiffusion):
         c_edit = c["c_edited"][:N]
         c_prompt = c["c_prompt"][:N]
         c_cat = c["c_concat"][0][:N]
+        log['ground_truth'] = c['gt_imgs'][:N]
         c_cont, c = c["c_control"][0][:N], c["c_crossattn"][0][:N]
         N = min(z.shape[0], N)
         n_row = min(z.shape[0], n_row)
@@ -406,7 +407,6 @@ class ControlLDM(LatentDiffusion):
         log["control"] = c_cont * 2.0 - 1.0
         log["conditioning"] = log_txt_as_img((512, 512), batch[self.cond_stage_key], size=16)
         log['neural_masks'] = self.control_model.neural_operator.get_log_image()
-        log['ground_truth'] = c['gt_imgs'][:N]
 
         if plot_diffusion_rows:
             # get diffusion row
