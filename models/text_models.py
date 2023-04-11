@@ -72,7 +72,8 @@ class BertTextEncoder(torch.nn.Module):
         itexts = torch.autograd.Variable(x).cuda()
         mask = torch.autograd.Variable(mask).cuda()
         # attmask = torch.autograd.Variable(attmask).cuda()
-        out = self.textmodel(itexts)
+        with torch.no_grad():
+            out = self.textmodel(itexts)
         xlen = (torch.tensor(xlen, dtype=torch.float) - 2).view(-1, 1).data.cuda()  # remove special token
         assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
 
