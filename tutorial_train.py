@@ -11,6 +11,7 @@ from cldm.logger import ImageLogger
 from cldm.model import create_model, load_state_dict
 from datasets import load_dataset
 from torchvision import transforms
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 # Configs
 resume_path = './models/control_sd15_ini.ckpt'
@@ -58,17 +59,19 @@ class DataTransformer:
         return output
 
 
-#dataset = MyDataset()
+# dataset = MyDataset()
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
 dataset = dataset.shuffle(buffer_size=10000, seed=42)
 piltransformer = DataTransformer()
 dataset = dataset.map(lambda x: piltransformer.transformer(x))
 dataset = dataset.remove_columns(["edited_image", "original_prompt", "original_image", "edit_prompt", "edited_prompt"])
 dataloader = DataLoader(dataset, num_workers=0, batch_size=batch_size)
-logger = ImageLogger(batch_frequency=logger_freq,
-                     log_images_kwargs={"sample": True})
+logger = ImageLogger(batch_frequency=logger_freq)
+lr_logger = LearningRateMonitor(logging_interval='step')
 
-trainer = pl.Trainer(accelerator="gpu", devices=num_gpus, precision=32, num_nodes=num_nodes, callbacks=[logger], strategy='ddp')
+trainer = pl.Trainer(accelerator="gpu", devices=num_gpus, precision=32, num_nodes=num_nodes,
+                     callbacks=[logger, lr_logger],
+                     strategy='ddp')
 
 # Train!
 trainer.fit(model, dataloader)
