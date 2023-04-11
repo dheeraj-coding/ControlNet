@@ -7,7 +7,6 @@ import models.operator as op
 from models.localizer import LocalizerAttn
 import functools
 import torchvision
-from tensorboardX import SummaryWriter
 
 
 def pairwise_dis(x, y):

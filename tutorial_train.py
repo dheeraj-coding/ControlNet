@@ -59,7 +59,7 @@ class DataTransformer:
         return output
 
 
-# dataset = MyDataset()
+#dataset = MyDataset()
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
 dataset = dataset.shuffle(buffer_size=10000, seed=42)
 piltransformer = DataTransformer()
