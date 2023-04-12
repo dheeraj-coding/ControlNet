@@ -12,6 +12,11 @@ from cldm.model import create_model, load_state_dict
 from datasets import load_dataset
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+ckpt_callback = ModelCheckpoint(dirpath='./checkpoints', filename='control_sd15_ini-{epoch:02d}--{train/loss:.2f}',
+                                save_top_k=3,
+                                monitor='train/loss', mode='min')
 
 # Configs
 resume_path = './models/control_sd15_ini.ckpt'
@@ -59,7 +64,7 @@ class DataTransformer:
         return output
 
 
-#dataset = MyDataset()
+# dataset = MyDataset()
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
 dataset = dataset.shuffle(buffer_size=10000, seed=42)
 piltransformer = DataTransformer()
@@ -70,7 +75,7 @@ logger = ImageLogger(batch_frequency=logger_freq)
 lr_logger = LearningRateMonitor(logging_interval='step')
 
 trainer = pl.Trainer(accelerator="gpu", devices=num_gpus, precision=32, num_nodes=num_nodes,
-                     callbacks=[logger, lr_logger],
+                     callbacks=[logger, lr_logger, ckpt_callback],
                      strategy='ddp')
 
 # Train!
