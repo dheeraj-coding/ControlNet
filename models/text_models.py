@@ -21,6 +21,7 @@ import torch
 import torchvision
 import torch.nn.functional as F
 from transformers import BertTokenizer, BertModel, BertForMaskedLM, BertConfig, DistilBertModel, DistilBertTokenizer
+from transformers import AutoModel, AutoTokenizer
 
 
 class BertTextEncoder(torch.nn.Module):
@@ -29,7 +30,8 @@ class BertTextEncoder(torch.nn.Module):
     def __init__(self, pretrained=True, img_dim=256):
         super(BertTextEncoder, self).__init__()
         # self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-        self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/MiniLM-L12-H384-uncased")
         self.pretrained = pretrained
         ### Define an attention module using concat and additive
         self.query1 = torch.nn.Linear(768 + img_dim, 512)
@@ -46,40 +48,56 @@ class BertTextEncoder(torch.nn.Module):
         # else:
         #     self.textmodel = BertModel.from_pretrained('bert-base-cased')
         #     # self.downsample = torch.nn.Linear(768,512)
-        self.textmodel = DistilBertModel.from_pretrained('distilbert-base-uncased')
+        # self.textmodel = DistilBertModel.from_pretrained('distilbert-base-uncased')
+        self.textmodel = AutoModel.from_pretrained("microsoft/MiniLM-L12-H384-uncased")
+        self.upsample = torch.nn.Sequential(
+            torch.nn.Linear(384, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, 768),
+            torch.nn.ReLU()
+        )
 
     def extract_text_feature(self, texts, img1d):
-        x = []
-        xlen = []
-        mask = []
+        # x = []
+        # xlen = []
+        # mask = []
         # attmask = []
-        text_tokens = []
-        for text in texts:
-            t = '[CLS] ' + text.lower() + ' [SEP]'
-            tokenized_text = self.tokenizer.tokenize(t)
-            text_tokens.append(tokenized_text)
-            indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
-            x.append(indexed_tokens)
-            xlen.append(len(indexed_tokens))
-        maxlen = max(xlen)
-        for i in range(len(x)):
-            mask.append([0] + [1] * (xlen[i] - 2) + [0] * (maxlen - xlen[i] + 1))
-            # attmask.append([1] * (xlen[i]) + [0] * (maxlen - xlen[i]))
-            x[i] = x[i] + [0] * (maxlen - xlen[i])
-        x = torch.tensor(x)
-        mask = torch.tensor(mask, dtype=torch.float).unsqueeze(2)
+        # text_tokens = []
+        # for text in texts:
+        #     # t = '[CLS] ' + text.lower() + ' [SEP]'
+        #     tokenized_text = self.tokenizer.tokenize(text)
+        #     m = self.tokenizer.get_special_tokens_mask(tokenized_text)
+        #     m = [1 - x for x in m]
+        #     mask.append(m)
+        #     # text_tokens.append(tokenized_text)
+        #     indexed_tokens = self.tokenizer.convert_tokens_to_ids(tokenized_text)
+        #     x.append(indexed_tokens)
+        #     xlen.append(len(indexed_tokens))
+        # maxlen = max(xlen)
+        # for i in range(len(x)):
+        #     mask.append([0] + [1] * (xlen[i] - 2) + [0] * (maxlen - xlen[i] + 1))
+        # attmask.append([1] * (xlen[i]) + [0] * (maxlen - xlen[i]))
+        # x[i] = x[i] + [0] * (maxlen - xlen[i])
+        # x = torch.tensor(x)
+        # mask = torch.tensor(mask, dtype=torch.float).unsqueeze(2)
         # attmask = torch.tensor(attmask, dtype=torch.float).unsqueeze(2)
-        itexts = torch.autograd.Variable(x).cuda()
-        mask = torch.autograd.Variable(mask).cuda()
+        # itexts = torch.autograd.Variable(x).cuda()
+        # mask = torch.autograd.Variable(mask).cuda()
         # attmask = torch.autograd.Variable(attmask).cuda()
+        x = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt", return_special_tokens_mask=True)
+        mask = torch.tensor(x['special_tokens_mask'], dtype=torch.float).unsqueeze(2).to(self.textmodel.device)
+        mask = 1 - mask
+        attmask = x['attention_mask'].to(self.textmodel.device)
+        inpt = x['input_ids'].to(self.textmodel.device)
         with torch.no_grad():
-            out = self.textmodel(itexts)
+            out = self.textmodel(input_ids=inpt, attention_mask=attmask)
+        xlen = torch.count_nonzero(mask, dim=1)
         xlen = (torch.tensor(xlen, dtype=torch.float) - 2).view(-1, 1).data.cuda()  # remove special token
-        assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
-
-        puretext = torch.div(torch.sum(torch.mul(out[0], mask), dim=1), xlen)
+        # assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
+        out = self.upsample(out['last_hidden_state'])
+        puretext = torch.div(torch.sum(torch.mul(out, mask), dim=1), xlen)
         comb = torch.cat((puretext, img1d), dim=1).unsqueeze(1)
-        masked_out = torch.mul(out[0], mask)
+        masked_out = torch.mul(out, mask)
         mask_sfmax = (1 - mask) * -10000.0
 
         query1 = self.query1(comb)
@@ -96,5 +114,4 @@ class BertTextEncoder(torch.nn.Module):
         attn2 = torch.nn.functional.softmax(logit2, dim=1)
         out2 = torch.sum(attn2.unsqueeze(2) * value2, dim=1)
 
-        rawtext = torch.cat((puretext, torch.zeros((puretext.shape[0], 1024 - 768), device=puretext.device)), dim=1)
-        return (out1, attn1), (out2, attn2), text_tokens, rawtext
+        return (out1, attn1), (out2, attn2)
