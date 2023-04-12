@@ -65,7 +65,7 @@ class NeuralOperator(nn.Module):
 
         # text feature
         img1d = torch.mean(real_A_feat, dim=(2, 3))
-        self.text1, self.text2, self.text_tokens, rawtext = self.text_E.extract_text_feature(self.text, img1d)
+        self.text1, self.text2 = self.text_E.extract_text_feature(self.text, img1d)
 
         # ground-truth attention mask
         with torch.no_grad():
