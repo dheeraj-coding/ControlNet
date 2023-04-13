@@ -4,10 +4,14 @@ from transformers import AutoTokenizer, AutoModel, TrainingArguments, Trainer
 import evaluate
 import numpy as np
 
-pixdataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split='train', streaming=True)
+train_dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split='train', streaming=True).shuffle(
+    buffer_size=10000, seed=42)
+train_dataset = train_dataset.skip(300_000)
 
-train_dataset = pixdataset.skip(300_000).shuffle(buffer_size=10000, seed=42)
-test_dataset = pixdataset.take(13000).shuffle(buffer_size=1000, seed=42)
+test_dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split='train', streaming=True).shuffle(
+    buffer_size=10000, seed=42)
+test_dataset.skip(300_000)
+test_dataset = test_dataset.take(13000)
 
 tokenizer = AutoTokenizer.from_pretrained("albert-base-v2")
 model = AutoModel.from_pretrained("albert-base-v2")
