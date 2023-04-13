@@ -92,7 +92,7 @@ class BertTextEncoder(torch.nn.Module):
         with torch.no_grad():
             out = self.textmodel(input_ids=inpt, attention_mask=attmask)
         xlen = torch.count_nonzero(mask, dim=1)
-        xlen = (torch.tensor(xlen, dtype=torch.float) - 2).view(-1, 1).data.cuda()  # remove special token
+        xlen = (torch.tensor(xlen, dtype=torch.float)).view(-1, 1).data.cuda()  # remove special token
         # assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
         # out = self.upsample(out['last_hidden_state'])
         out = out['last_hidden_state']
