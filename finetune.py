@@ -5,10 +5,9 @@ import evaluate
 import numpy as np
 
 pixdataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split='train', streaming=True)
-pixdataset = pixdataset.train_test_split(test_size=0.1, shuffle=True, seed=42)
 
-train_dataset = pixdataset['train']
-test_dataset = pixdataset['test']
+train_dataset = pixdataset.skip(300_000).shuffle(buffer_size=10000, seed=42)
+test_dataset = pixdataset.take(13000).shuffle(buffer_size=1000, seed=42)
 
 tokenizer = AutoTokenizer.from_pretrained("albert-base-v2")
 model = AutoModel.from_pretrained("albert-base-v2")
