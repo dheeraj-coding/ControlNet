@@ -31,7 +31,7 @@ class BertTextEncoder(torch.nn.Module):
         super(BertTextEncoder, self).__init__()
         # self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
         # self.tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/MiniLM-L12-H384-uncased")
+        self.tokenizer = AutoTokenizer.from_pretrained("albert-base-v2")
         self.pretrained = pretrained
         ### Define an attention module using concat and additive
         self.query1 = torch.nn.Linear(768 + img_dim, 512)
@@ -49,13 +49,13 @@ class BertTextEncoder(torch.nn.Module):
         #     self.textmodel = BertModel.from_pretrained('bert-base-cased')
         #     # self.downsample = torch.nn.Linear(768,512)
         # self.textmodel = DistilBertModel.from_pretrained('distilbert-base-uncased')
-        self.textmodel = AutoModel.from_pretrained("microsoft/MiniLM-L12-H384-uncased")
-        self.upsample = torch.nn.Sequential(
-            torch.nn.Linear(384, 512),
-            torch.nn.ReLU(),
-            torch.nn.Linear(512, 768),
-            torch.nn.ReLU()
-        )
+        self.textmodel = AutoModel.from_pretrained("albert-base-v2")
+        # self.upsample = torch.nn.Sequential(
+        #     torch.nn.Linear(384, 512),
+        #     torch.nn.ReLU(),
+        #     torch.nn.Linear(512, 768),
+        #     torch.nn.ReLU()
+        # )
 
     def extract_text_feature(self, texts, img1d):
         # x = []
@@ -94,7 +94,8 @@ class BertTextEncoder(torch.nn.Module):
         xlen = torch.count_nonzero(mask, dim=1)
         xlen = (torch.tensor(xlen, dtype=torch.float) - 2).view(-1, 1).data.cuda()  # remove special token
         # assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
-        out = self.upsample(out['last_hidden_state'])
+        # out = self.upsample(out['last_hidden_state'])
+        out = out['last_hidden_state']
         puretext = torch.div(torch.sum(torch.mul(out, mask), dim=1), xlen)
         comb = torch.cat((puretext, img1d), dim=1).unsqueeze(1)
         masked_out = torch.mul(out, mask)
