@@ -1,6 +1,7 @@
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 import pickle
+from tqdm import tqdm
 
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train", streaming=True)
 dataset = dataset.map(lambda x: {'edit_prompt': x['edit_prompt']},
@@ -8,5 +9,5 @@ dataset = dataset.map(lambda x: {'edit_prompt': x['edit_prompt']},
 loader = DataLoader(dataset=dataset, batch_size=16, num_workers=0)
 
 with open('prompts.txt', 'ab+') as f:
-    for batch in loader:
+    for batch in tqdm(loader, total=313010 / 16):
         pickle.dump(batch['edit_prompt'], f)
