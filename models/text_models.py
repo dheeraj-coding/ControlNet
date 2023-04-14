@@ -89,8 +89,7 @@ class BertTextEncoder(torch.nn.Module):
         mask = 1 - mask
         attmask = x['attention_mask'].to(self.textmodel.device)
         inpt = x['input_ids'].to(self.textmodel.device)
-        with torch.no_grad():
-            out = self.textmodel(input_ids=inpt, attention_mask=attmask)
+        out = self.textmodel(input_ids=inpt, attention_mask=attmask)
         xlen = torch.count_nonzero(mask, dim=1)
         xlen = (torch.tensor(xlen, dtype=torch.float)).view(-1, 1).data.cuda()  # remove special token
         # assert tuple(out[0].shape) == (x.size()[0], maxlen, self.textmodel.config.hidden_size)
