@@ -33,6 +33,7 @@ from fastai.basics import show_image, show_images
 import clip
 from datasets import load_dataset
 from fastcore.parallel import Self
+from predict import process
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -83,6 +84,7 @@ seed = 0
 
 dataset = load_dataset("timbrooks/instructpix2pix-clip-filtered", split="train",
                        streaming=True)  # will start loading the data when iterated over
+dataset = dataset.take(10_000)
 
 output_json_instruct = []
 output_json_imagic = []
@@ -96,65 +98,6 @@ sim_image_avg_instruct = []
 sim_direction_avg_imagic = []
 sim_image_avg_imagic = []
 stop_count = 25
-model = create_model('./models/cldm_v21.yaml').cpu()
-model.load_state_dict(
-    load_state_dict('/home1/dheeraj/ControlNet/lightning_logs/version_14208795/checkpoints/epoch=1-step=99999.ckpt',
-                    location='cuda'))
-model = model.cuda()
-model = model.eval()
-ddim_sampler = DDIMSampler(model)
-
-
-def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, ddim_steps, guess_mode, strength,
-            scale, seed, eta, low_threshold, high_threshold):
-    with torch.no_grad():
-        # img = resize_image(HWC3(input_image), image_resolution)
-        img = input_image.to(device)
-        H, W, C = img.shape
-        print(img.shape)
-
-        # detected_map = apply_canny(img, low_threshold, high_threshold)
-        # detected_map = HWC3(input_image)
-        detected_map = img
-        control = torch.clone(detected_map)
-
-        control = torch.stack([control for _ in range(num_samples)], dim=0)
-        control = rearrange(control, 'b h w c -> b c h w').clone()
-
-        if seed == -1:
-            seed = random.randint(0, 65535)
-        seed_everything(seed)
-
-        if config.save_memory:
-            model.low_vram_shift(is_diffusing=False)
-
-        cond = {"c_concat": [control],
-                "c_crossattn": [model.get_learned_conditioning([prompt + ', ' + a_prompt] * num_samples)]}
-        un_cond = {"c_concat": None if guess_mode else [control],
-                   "c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}
-        shape = (4, H // 8, W // 8)
-
-        if config.save_memory:
-            model.low_vram_shift(is_diffusing=True)
-
-        model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else (
-                [strength] * 13)  # Magic number. IDK why. Perhaps because 0.825**12<0.01 but 0.826**12>0.01
-        samples, intermediates = ddim_sampler.sample(ddim_steps, num_samples,
-                                                     shape, cond, verbose=False, eta=eta,
-                                                     unconditional_guidance_scale=scale,
-                                                     unconditional_conditioning=un_cond)
-
-        if config.save_memory:
-            model.low_vram_shift(is_diffusing=False)
-
-        x_samples = model.decode_first_stage(samples)
-        x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0,
-                                                                                                           255).astype(
-            np.uint8)
-
-        results = [x_samples[i] for i in range(num_samples)]
-    return [255 - detected_map] + results
-
 
 data_transformer = transforms.Compose([
     transforms.PILToTensor()
@@ -178,7 +121,8 @@ for index, data in enumerate(dataset):
         img = data_transformer(img)
         img = rearrange(img, 'c h w -> h w c')
         img = img.type(torch.float32) / 255.0
-        ret_value = process(img, prompt, "", "", 1, 512, 20, False, 1.0, 9.0, seed, 0.0, 100, 200)
+        # ret_value = process(img, prompt, "", "", 1, 512, 20, False, 1.0, 9.0, seed, 0.0, 100, 200)
+        ret_value = process(img, prompt, '', '', 1, 512, 20, False, 1, 9.0, seed, 0.0)
         ret_value = ret_value[0]
         ret_value = rearrange(ret_value, 'h w c -> c h w')
         ret_value = to_transformer(ret_value)
